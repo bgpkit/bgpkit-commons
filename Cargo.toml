@@ -1,0 +1,21 @@
+[package]
+name = "bgpkit-commons"
+version = "0.1.0"
+edition = "2021"
+authors = ["Mingwei Zhang <mingwei@bgpkit.com>"]
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/bgpkit/bgpkit-commons"
+documentation = "https://docs.rs/bgpkit-commons"
+description = """
+A library for common BGP-related data and functions.
+"""
+keywords = ["bgp", "bgpkit"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+reqwest = {version = "0.11", features = ["blocking", "json"]}
+serde = {version="1.0", features = ["derive"]}
+anyhow = "1.0"
+chrono = "0.4"
