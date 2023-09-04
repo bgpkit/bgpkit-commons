@@ -14,15 +14,17 @@ BGPKIT-Commons is a library for common BGP-related data and functions.
 
 ## Categories
 
-### MRT Collectors
+### MRT collectors
 
-This crate provides three functions to retrive the full list of MRT collectors from
+This crate provides three functions to retrieve the full list of MRT collectors from
 RouteViews and RIPE RIS:
 - `get_routeviews_collectors()`
 - `get_riperis_collectors()`
 - `get_all_collectors()`
 
-The collectors is abstract to the following struct:
+#### Data structure
+
+The collectors are abstract to the following struct:
 ```rust
 use chrono::NaiveDateTime;
 use bgpkit_commons::collectors::MrtCollectorProject;
@@ -52,6 +54,7 @@ pub enum MrtCollectorProject {
 }
 ```
 
+#### Usage example
 
 See the following example for usage:
 ```rust
@@ -74,6 +77,37 @@ fn main() {
 }
 ```
 
+### AS name and country
+
+`asnames` is a module for Autonomous System (AS) names and country lookup
+
+Data source:
+- <https://ftp.ripe.net/ripe/asnames/asn.txt>
+
+#### Data structure
+
+```rust
+#[derive(Debug, Clone)]
+pub struct AsName {
+    pub asn: u32,
+    pub name: String,
+    pub country: String,
+}
+```
+
+#### Usage example
+
+```rust
+use std::collections::HashMap;
+use bgpkit_commons::asnames::{AsName, get_asnames};
+
+fn main() {
+    let asnames: HashMap<u32, AsName> = get_asnames().unwrap();
+    assert_eq!(asnames.get(&3333).unwrap().name, "RIPE-NCC-AS Reseaux IP Europeens Network Coordination Centre (RIPE NCC)");
+    assert_eq!(asnames.get(&400644).unwrap().name, "BGPKIT-LLC");
+    assert_eq!(asnames.get(&400644).unwrap().country, "US");
+}
+```
 ## Built with ❤️ by BGPKIT Team
 
 <a href="https://bgpkit.com"><img src="https://bgpkit.com/Original%20Logo%20Cropped.png" alt="https://bgpkit.com/favicon.ico" width="200"/></a>

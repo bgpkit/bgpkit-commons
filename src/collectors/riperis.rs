@@ -37,7 +37,7 @@ impl ToMrtCollector for RisCollector {
             Err(_) => return None,
         };
 
-        let deactivated_on = match &self.deactivated_on == "" {
+        let deactivated_on = match self.deactivated_on.is_empty() {
             true => None,
             false => match DateTime::parse_from_rfc3339(
                 format!("{}-01T00:00:00Z", self.deactivated_on.as_str()).as_str(),
@@ -53,7 +53,7 @@ impl ToMrtCollector for RisCollector {
 
         let country = self
             .geographical_location
-            .split(",")
+            .split(',')
             .map(|c| c.trim())
             .collect::<Vec<&str>>()[1]
             .to_string();
