@@ -21,5 +21,6 @@ anyhow = "1.0"
 chrono = "0.4"
 
 [features]
-default = ["reqwest/default-tls"]
+default = ["native-tls"]
+native-tls = ["reqwest/default-tls"]
 rustls = ["reqwest/rustls-tls"]
