@@ -99,6 +99,11 @@
 //!     assert_eq!(asnames.get(&400644).unwrap().country, "US");
 //! }
 //! ```
+//!
+//! ## Feature Flags
+//!
+//! - `rustls`: use rustls instead of native-tls for the underlying HTTPS requests
+//!
 //! # Built with ❤️ by BGPKIT Team
 //!
 //! <a href="https://bgpkit.com"><img src="https://bgpkit.com/Original%20Logo%20Cropped.png" alt="https://bgpkit.com/favicon.ico" width="200"/></a>
