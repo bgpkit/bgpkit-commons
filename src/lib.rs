@@ -100,6 +100,43 @@
 //! }
 //! ```
 //!
+//! ## Countries detailed information
+//!
+//! ### Data Structure
+//!
+//! ```rust
+//! pub struct Country {
+//!     /// 2-letter country code
+//!     pub code: String,
+//!     /// 3-letter country code
+//!     pub code3: String,
+//!     /// Country name
+//!     pub name: String,
+//!     /// Capital city
+//!     pub capital: String,
+//!     /// Continent
+//!     pub continent: String,
+//!     /// Country's top-level domain
+//!     pub ltd: Option<String>,
+//!     /// Neighboring countries in 2-letter country code
+//!     pub neighbors: Vec<String>,
+//! }
+//! ```
+//!
+//! ### Usage Examples
+//!
+//! ```
+//! use bgpkit_commons::countries::Countries;
+//!
+//! let countries = Countries::new().unwrap();
+//! assert_eq!(
+//!     countries.lookup_by_code("US").unwrap().name,
+//!     "United States"
+//! );
+//! assert_eq!(countries.lookup_by_name("united states").len(), 2);
+//! assert_eq!(countries.lookup_by_name("united kingdom").len(), 1);
+//! ```
+//!
 //! ## RPKI utilities
 //!
 //! ### Data sources
@@ -138,6 +175,7 @@
 //! let prefix = IpNet::from_str("1.1.1.0/24").unwrap();
 //! assert_eq!(rpki.validate(&prefix, 13335), RpkiValidation::Valid);
 //! ```
+//!
 //! ## Feature Flags
 //!
 //! - `rustls`: use rustls instead of native-tls for the underlying HTTPS requests
@@ -153,4 +191,5 @@
 
 pub mod asnames;
 pub mod collectors;
+pub mod countries;
 pub mod rpki;
