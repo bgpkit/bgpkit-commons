@@ -100,6 +100,44 @@
 //! }
 //! ```
 //!
+//! ## RPKI utilities
+//!
+//! ### Data sources
+//!
+//! - [Cloudflare RPKI JSON](https://rpki.cloudflare.com/rpki.json)
+//! - [RIPC NCC RPKI historical data dump](https://ftp.ripe.net/rpki/)
+//!     - AFRINIC: <https://ftp.ripe.net/rpki/afrinic.tal/>
+//!     - APNIC: <https://ftp.ripe.net/rpki/apnic.tal/>
+//!     - ARIN: <https://ftp.ripe.net/rpki/arin.tal/>
+//!     - LACNIC: <https://ftp.ripe.net/rpki/lacnic.tal/>
+//!     - RIPE NCC: <https://ftp.ripe.net/rpki/ripencc.tal/>
+//!
+//! ### Usage Examples
+//!
+//! #### Check current RPKI validation using Cloudflare RPKI portal
+//!
+//! ```
+//! use std::str::FromStr;
+//! use ipnet::IpNet;
+//! use bgpkit_commons::rpki::{RpkiTrie, RpkiValidation};
+//!
+//! let trie = RpkiTrie::from_cloudflare().unwrap();
+//! let prefix = IpNet::from_str("1.1.1.0/24").unwrap();
+//! assert_eq!(trie.validate(&prefix, 13335), RpkiValidation::Valid);
+//! ```
+//!
+//!
+//! #### Check RPKI validation for a given date
+//! ```
+//! use std::str::FromStr;
+//! use chrono::NaiveDate;
+//! use ipnet::IpNet;
+//! use bgpkit_commons::rpki::{RpkiTrie, RpkiValidation};
+//!
+//! let rpki = RpkiTrie::from_ripe_historical(NaiveDate::from_ymd_opt(2023, 1, 1).unwrap()).unwrap();
+//! let prefix = IpNet::from_str("1.1.1.0/24").unwrap();
+//! assert_eq!(rpki.validate(&prefix, 13335), RpkiValidation::Valid);
+//! ```
 //! ## Feature Flags
 //!
 //! - `rustls`: use rustls instead of native-tls for the underlying HTTPS requests
@@ -115,3 +153,4 @@
 
 pub mod asnames;
 pub mod collectors;
+pub mod rpki;
