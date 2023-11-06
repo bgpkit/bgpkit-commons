@@ -148,6 +148,10 @@ let prefix = IpNet::from_str("1.1.1.0/24").unwrap();
 assert_eq!(rpki.validate(&prefix, 13335), RpkiValidation::Valid);
 ```
 
+## Feature Flags
+
+- `rustls`: use rustls instead of native-tls for the underlying HTTPS requests
+
 ## Built with ❤️ by BGPKIT Team
 
 <a href="https://bgpkit.com"><img src="https://bgpkit.com/Original%20Logo%20Cropped.png" alt="https://bgpkit.com/favicon.ico" width="200"/></a>
