@@ -1,3 +1,42 @@
+//! # Module: countries
+//!
+//! This module provides functionalities related to countries. It fetches country data from the GeoNames database and provides various lookup methods to retrieve country information.
+//!
+//! ## Structures
+//!
+//! ### Country
+//!
+//! This structure represents a country with the following fields:
+//!
+//! - `code`: A 2-letter country code.
+//! - `code3`: A 3-letter country code.
+//! - `name`: The name of the country.
+//! - `capital`: The capital city of the country.
+//! - `continent`: The continent where the country is located.
+//! - `ltd`: The country's top-level domain. This field is optional.
+//! - `neighbors`: A list of neighboring countries represented by their 2-letter country codes.
+//!
+//! ### Countries
+//!
+//! This structure represents a collection of countries. It provides various methods to lookup and retrieve country information.
+//!
+//! ## Methods
+//!
+//! ### Countries::new()
+//!
+//! This method fetches country data from the GeoNames database and returns a `Countries` instance.
+//!
+//! ### Countries::lookup_by_code(&self, code: &str) -> Option<Country>
+//!
+//! This method looks up a country by its 2-letter country code. It returns an `Option<Country>`.
+//!
+//! ### Countries::lookup_by_name(&self, name: &str) -> Vec<Country>
+//!
+//! This method looks up countries by name. The search is case-insensitive and returns countries whose names contain the given string. It returns a `Vec<Country>`.
+//!
+//! ### Countries::all_countries(&self) -> Vec<Country>
+//!
+//! This method returns all countries in the collection. It returns a `Vec<Country>`.
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 
@@ -22,6 +61,7 @@ pub struct Country {
     pub neighbors: Vec<String>,
 }
 
+/// Countries data structure that contains a collection of countries
 #[derive(Debug, Clone)]
 pub struct Countries {
     countries: HashMap<String, Country>,
