@@ -29,7 +29,7 @@ impl RpkiTrie {
         let mut roas = vec![];
         let base_url = rir.to_ripe_ftp_root_url();
         let url = format!(
-            "{}/{:04}/{:02}/{:02}/roas.csv",
+            "{}/{:04}/{:02}/{:02}/roas.csv.xz",
             base_url,
             date.year(),
             date.month(),
