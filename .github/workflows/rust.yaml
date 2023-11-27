@@ -1,0 +1,36 @@
+name: Rust
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Run cargo-readme check
+        run: cargo install cargo-readme && cargo readme > TMP_README.md && diff -b TMP_README.md README.md
+
+      - name: Build default
+        run: cargo build
+
+      - name: Build lib with native-tls
+        run: cargo build --features native-tls
+
+      - name: Build lib with rustls
+        run: cargo build --features rustls
+
+      - name: Run format check
+        run: cargo fmt --check
+
+      - name: Run clippy
+        run: cargo clippy --all-features -- -D warnings

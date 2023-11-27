@@ -157,6 +157,7 @@ assert_eq!(countries.lookup_by_name("united kingdom").len(), 1);
     - ARIN: <https://ftp.ripe.net/rpki/arin.tal/>
     - LACNIC: <https://ftp.ripe.net/rpki/lacnic.tal/>
     - RIPE NCC: <https://ftp.ripe.net/rpki/ripencc.tal/>
+- [rpkiviews historical data dump](https://rpkiviews.org/)
 
 #### Usage Examples
 
@@ -181,6 +182,7 @@ use ipnet::IpNet;
 use bgpkit_commons::rpki::{RpkiTrie, RpkiValidation};
 
 let rpki = RpkiTrie::from_ripe_historical(NaiveDate::from_ymd_opt(2023, 1, 1).unwrap()).unwrap();
+// let rpki = RpkiTrie::from_rpkiviews_historical(NaiveDate::from_ymd_opt(2023, 1, 1).unwrap()).unwrap();
 let prefix = IpNet::from_str("1.1.1.0/24").unwrap();
 assert_eq!(rpki.validate(&prefix, 13335), RpkiValidation::Valid);
 ```

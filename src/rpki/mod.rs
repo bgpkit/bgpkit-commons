@@ -9,10 +9,11 @@
 //!     - ARIN: <https://ftp.ripe.net/rpki/arin.tal/>
 //!     - LACNIC: <https://ftp.ripe.net/rpki/lacnic.tal/>
 //!     - RIPE NCC: <https://ftp.ripe.net/rpki/ripencc.tal/>
-//!
+//! - [rpkiviews historical data dump](https://rpkiviews.org/)
 
 mod cloudflare;
 mod ripe_historical;
+mod rpkiviews;
 
 use chrono::NaiveDateTime;
 use ipnet::IpNet;
@@ -109,9 +110,16 @@ impl Display for RpkiValidation {
 }
 
 impl RpkiTrie {
-    // insert an [RoaEntry]. If old value exists, it is returned.
+    /// insert an [RoaEntry]. If old value exists, it is returned.
     pub fn insert_roa(&mut self, roa: RoaEntry) -> Option<RoaEntry> {
         self.trie.insert(roa.prefix, roa)
+    }
+
+    /// insert multiple [RoaEntry]s
+    pub fn insert_roas(&mut self, roas: Vec<RoaEntry>) {
+        for roa in roas {
+            self.insert_roa(roa);
+        }
     }
 
     /// Lookup all ROAs that match a given prefix, including invalid ones
