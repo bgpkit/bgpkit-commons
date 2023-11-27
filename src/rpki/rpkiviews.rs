@@ -2,7 +2,6 @@
 use crate::rpki::{Rir, RoaEntry, RpkiTrie};
 use anyhow::Result;
 use chrono::{Datelike, NaiveDate, NaiveDateTime};
-use ipnet::IpNet;
 use serde::Deserialize;
 use std::str::FromStr;
 
@@ -118,6 +117,7 @@ fn load_vrp_from_rpkiviews(date: NaiveDate) -> Result<Vec<RoaEntry>> {
 mod tests {
     use super::*;
     use crate::rpki::RpkiValidation;
+    use ipnet::IpNet;
 
     #[test]
     fn test_rpkiviews_historical() {

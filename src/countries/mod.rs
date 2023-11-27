@@ -77,7 +77,7 @@ impl Countries {
             if text.trim() == "" || text.starts_with('#') {
                 continue;
             }
-            let splits: Vec<&str> = text.split("\t").collect();
+            let splits: Vec<&str> = text.split('\t').collect();
             if splits.len() != 19 {
                 return Err(anyhow!("row missing fields: {}", text.as_str()));
             }
@@ -91,7 +91,7 @@ impl Countries {
                 d => Some(d.to_string()),
             };
             let neighbors = splits[17]
-                .split(",")
+                .split(',')
                 .map(|x| x.to_string())
                 .collect::<Vec<String>>();
             countries.push(Country {
