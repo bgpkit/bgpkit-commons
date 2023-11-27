@@ -24,10 +24,10 @@ jobs:
         run: cargo build
 
       - name: Build lib with native-tls
-        run: cargo build --features lib-native-tls
+        run: cargo build --features native-tls
 
       - name: Build lib with rustls
-        run: cargo build --features lib-rustls
+        run: cargo build --features rustls
 
       - name: Run format check
         run: cargo fmt --check
