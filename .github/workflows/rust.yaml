@@ -24,10 +24,10 @@ jobs:
         run: cargo build
 
       - name: Build lib with native-tls
-        run: cargo build --features native-tls
+        run: cargo build --features native-tls && cargo tree --no-default-features --features native-tls | grep -q rustls && {exit 1} || echo "success"
 
       - name: Build lib with rustls
-        run: cargo build --features rustls
+        run: cargo build --features rustls && cargo tree --no-default-features --features rustls | grep -q native-tls && {exit 1} || echo "success"
 
       - name: Run format check
         run: cargo fmt --check
