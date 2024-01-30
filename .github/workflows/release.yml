@@ -1,0 +1,44 @@
+name: Release
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - v[0-9]+.*
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/create-gh-release-action@v1
+        with:
+          # (optional) Path to changelog.
+          changelog: CHANGELOG.md
+          # (required) GitHub token for creating GitHub Releases.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  format-check:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run format check
+        run: cargo fmt --check
+      - name: Run cargo-readme check
+        run: cargo install cargo-readme && cargo readme > TMP_README.md && diff -b TMP_README.md README.md
+
+
+  cargo-publish:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish to crates.io
+        run: >
+          cargo publish
+          --all-features
+          --verbose
+          --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
