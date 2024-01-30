@@ -16,7 +16,7 @@
 //! ### Data structure
 //!
 //! The collectors are abstract to the following struct:
-//! ```no_run
+//! ```rust,no_run
 //! use chrono::NaiveDateTime;
 //! use bgpkit_commons::collectors::MrtCollectorProject;
 //!  /// MRT collector meta information
@@ -37,7 +37,7 @@
 //! }
 //! ```
 //! where `MrtCollectorProject` is defined as:
-//! ```no_run
+//! ```rust,no_run
 //! #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 //! pub enum MrtCollectorProject {
 //!     RouteViews,
@@ -50,22 +50,21 @@
 //! See the following example for usage:
 //! ```rust
 //! use bgpkit_commons::collectors::get_routeviews_collectors;
-//! fn main() {
-//!     println!("get route views collectors");
-//!     let mut routeviews_collectors = get_routeviews_collectors().unwrap();
-//!     routeviews_collectors.sort();
-//!     let earliest = routeviews_collectors.first().unwrap();
-//!     let latest = routeviews_collectors.last().unwrap();
-//!     println!("\t total of {} collectors", routeviews_collectors.len());
-//!     println!(
-//!         "\t earliest collector: {} (activated on {})",
-//!         earliest.name, earliest.activated_on
-//!     );
-//!     println!(
-//!         "\t latest collector: {} (activated on {})",
-//!         latest.name, latest.activated_on
-//!     );
-//! }
+//!
+//! println!("get route views collectors");
+//! let mut routeviews_collectors = get_routeviews_collectors().unwrap();
+//! routeviews_collectors.sort();
+//! let earliest = routeviews_collectors.first().unwrap();
+//! let latest = routeviews_collectors.last().unwrap();
+//! println!("\t total of {} collectors", routeviews_collectors.len());
+//! println!(
+//!     "\t earliest collector: {} (activated on {})",
+//!     earliest.name, earliest.activated_on
+//! );
+//! println!(
+//!     "\t latest collector: {} (activated on {})",
+//!     latest.name, latest.activated_on
+//! );
 //! ```
 //!
 //! ## AS name and country
@@ -92,12 +91,10 @@
 //! use std::collections::HashMap;
 //! use bgpkit_commons::asnames::{AsName, get_asnames};
 //!
-//! fn main() {
-//!     let asnames: HashMap<u32, AsName> = get_asnames().unwrap();
-//!     assert_eq!(asnames.get(&3333).unwrap().name, "RIPE-NCC-AS Reseaux IP Europeens Network Coordination Centre (RIPE NCC)");
-//!     assert_eq!(asnames.get(&400644).unwrap().name, "BGPKIT-LLC");
-//!     assert_eq!(asnames.get(&400644).unwrap().country, "US");
-//! }
+//! let asnames: HashMap<u32, AsName> = get_asnames().unwrap();
+//! assert_eq!(asnames.get(&3333).unwrap().name, "RIPE-NCC-AS Reseaux IP Europeens Network Coordination Centre (RIPE NCC)");
+//! assert_eq!(asnames.get(&400644).unwrap().name, "BGPKIT-LLC");
+//! assert_eq!(asnames.get(&400644).unwrap().country, "US");
 //! ```
 //!
 //! ## Countries detailed information
