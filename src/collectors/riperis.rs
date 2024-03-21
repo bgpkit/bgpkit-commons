@@ -71,8 +71,7 @@ impl ToMrtCollector for RisCollector {
 
 /// Get RIPE RIS collectors meta information
 pub fn get_riperis_collectors() -> Result<Vec<MrtCollector>> {
-    let data = reqwest::blocking::get("https://stat.ripe.net/data/rrc-info/data.json")?
-        .json::<RisData>()?;
+    let data = oneio::read_json_struct::<RisData>("https://stat.ripe.net/data/rrc-info/data.json")?;
     Ok(data
         .data
         .rrcs

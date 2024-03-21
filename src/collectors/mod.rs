@@ -9,6 +9,7 @@ Currently supported MRT collector projects:
 
 use anyhow::Result;
 use chrono::NaiveDateTime;
+use serde::{Deserialize, Serialize, Serializer};
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 
@@ -19,10 +20,21 @@ pub use riperis::get_riperis_collectors;
 pub use routeviews::get_routeviews_collectors;
 
 /// MRT collector project enum
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum MrtCollectorProject {
     RouteViews,
     RipeRis,
+}
+
+// Custom serialization function for the `age` field
+fn serialize_project<S>(project: &MrtCollectorProject, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(match project {
+        MrtCollectorProject::RouteViews => "routeview",
+        MrtCollectorProject::RipeRis => "riperis",
+    })
 }
 
 impl Display for MrtCollectorProject {
@@ -39,11 +51,12 @@ impl Display for MrtCollectorProject {
 }
 
 /// MRT collector meta information
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct MrtCollector {
     /// name of the collector
     pub name: String,
     /// collector project
+    #[serde(serialize_with = "serialize_project")]
     pub project: MrtCollectorProject,
     /// MRT data files root URL
     pub data_url: String,

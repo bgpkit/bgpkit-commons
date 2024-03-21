@@ -38,12 +38,13 @@
 //!
 //! This method returns all countries in the collection. It returns a `Vec<Country>`.
 use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Country data structure
 ///
 /// Information coming from <https://download.geonames.org/export/dump/countryInfo.txt>
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Country {
     /// 2-letter country code
     pub code: String,

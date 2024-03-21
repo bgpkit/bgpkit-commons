@@ -28,9 +28,10 @@
 //! ```
 
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AsName {
     pub asn: u32,
     pub name: String,
@@ -40,7 +41,7 @@ pub struct AsName {
 const DATA_URL: &str = "https://ftp.ripe.net/ripe/asnames/asn.txt";
 
 pub fn get_asnames() -> Result<HashMap<u32, AsName>> {
-    let text = reqwest::blocking::get(DATA_URL)?.text()?;
+    let text = oneio::read_to_string(DATA_URL)?;
     let asnames = text
         .lines()
         .filter_map(|line| {

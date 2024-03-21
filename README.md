@@ -188,6 +188,36 @@ assert_eq!(rpki.validate(&prefix, 13335), RpkiValidation::Valid);
 
 - `rustls`: use rustls instead of native-tls for the underlying HTTPS requests
 
+## Commandline tool
+
+This crate also provides a commandline tool `bgpkit-commons` for easy access to the data and utilities.
+
+### Installation
+
+On macOS:
+```sh
+brew install bgpkit/tap/bgpkit-commons
+```
+
+On other platforms:
+```sh
+cargo binstall bgpkit-commons
+```
+
+#### Export all data to JSON
+
+```sh
+bgpkit-commons export --help
+Export data to local files
+
+ Usage: bgpkit-commons export [OPTIONS]
+
+ Options:
+   -o, --output-dir <OUTPUT_DIR>  output directory [default: .]
+   -h, --help                     Print help
+   -V, --version                  Print version
+```
+
 ## Built with ❤️ by BGPKIT Team
 
 <a href="https://bgpkit.com"><img src="https://bgpkit.com/Original%20Logo%20Cropped.png" alt="https://bgpkit.com/favicon.ico" width="200"/></a>

@@ -35,7 +35,7 @@ struct RVCollector {
 struct RvData {
     pub count: i64,
     #[serde(rename(deserialize = "results"))]
-    pub collectors: Vec<RVCollector>,
+    pub data: Vec<RVCollector>,
 }
 
 impl ToMrtCollector for RVCollector {
@@ -78,13 +78,23 @@ impl ToMrtCollector for RVCollector {
 
 /// Get RouteViews collectors meta information
 pub fn get_routeviews_collectors() -> Result<Vec<MrtCollector>> {
-    let data = reqwest::blocking::get("https://api.routeviews.org/collector/?format=json")?
-        .json::<RvData>()?;
+    let data =
+        oneio::read_json_struct::<RvData>("https://api.routeviews.org/collector/?format=json")?;
     Ok(data
-        .collectors
+        .data
         .into_iter()
         // exclude the Cisco collector that does not provide MRT archive
         .filter(|c| c.name.as_str() != "route-views")
         .map(|c| c.to_mrt_collector().unwrap())
         .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_routeviews_collectors() {
+        dbg!(get_routeviews_collectors().unwrap());
+    }
 }

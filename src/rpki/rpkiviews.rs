@@ -59,7 +59,7 @@ fn load_vrp_from_rpkiviews(date: NaiveDate) -> Result<Vec<RoaEntry>> {
         date.month(),
         date.day(),
     );
-    let response = reqwest::blocking::get(day_link.as_str())?.text()?;
+    let response = oneio::read_to_string(day_link.as_str())?;
 
     let mut link_date_vec = extract_file_names(&response)
         .into_iter()
