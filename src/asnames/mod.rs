@@ -45,8 +45,10 @@
 //! assert_eq!(asnames.get(&400644).unwrap().country, "US");
 //! ```
 
+mod hegemony;
 mod population;
 
+use crate::asnames::hegemony::HegemonyData;
 use crate::asnames::population::AsnPopulationData;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -60,6 +62,7 @@ pub struct AsName {
     pub country: String,
     pub as2org: Option<As2orgInfo>,
     pub population: Option<AsnPopulationData>,
+    pub hegemony: Option<HegemonyData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,6 +82,8 @@ pub fn get_asnames() -> Result<HashMap<u32, AsName>> {
     let as2org = as2org_rs::As2org::new(None)?;
     info!("loading ASN population data from APNIC...");
     let population = population::AsnPopulation::new()?;
+    info!("loading IIJ IHR hegemony score data from BGPKIT mirror...");
+    let hegemony = hegemony::Hegemony::new()?;
 
     let asnames = text
         .lines()
@@ -105,6 +110,7 @@ pub fn get_asnames() -> Result<HashMap<u32, AsName>> {
                 country: country_str.to_string(),
                 as2org,
                 population,
+                hegemony: hegemony.get_score(asn).cloned(),
             })
         })
         .collect::<Vec<AsName>>();
