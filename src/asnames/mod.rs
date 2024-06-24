@@ -74,7 +74,7 @@ pub fn get_asnames() -> Result<HashMap<u32, AsName>> {
                 None => return None,
             };
             let asn = asn_str.parse::<u32>().unwrap();
-            let caida_info = as2org.get_as_info(asn).map(|info| As2orgInfo {
+            let as2org = as2org.get_as_info(asn).map(|info| As2orgInfo {
                 name: info.name.clone(),
                 country: info.country_code.clone(),
                 org_id: info.org_id.clone(),
@@ -84,7 +84,7 @@ pub fn get_asnames() -> Result<HashMap<u32, AsName>> {
                 asn,
                 name: name_str.to_string(),
                 country: country_str.to_string(),
-                caida_info,
+                as2org,
             })
         })
         .collect::<Vec<AsName>>();
