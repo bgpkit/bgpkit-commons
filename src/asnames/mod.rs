@@ -2,16 +2,26 @@
 //!
 //! # Data source
 //!
-//! - <https://ftp.ripe.net/ripe/asnames/asn.txt>
+//! - RIPE NCC asnames: <https://ftp.ripe.net/ripe/asnames/asn.txt>
+//! - CAIDA as-to-organization mapping: <https://www.caida.org/catalog/datasets/as-organizations/>
 //!
 //! # Data structure
 //!
 //! ```rust
+//! use serde::{Deserialize, Serialize};
 //! #[derive(Debug, Clone)]
 //! pub struct AsName {
 //!     pub asn: u32,
 //!     pub name: String,
 //!     pub country: String,
+//!     pub as2org: Option<As2orgInfo>,
+//! }
+//! #[derive(Debug, Clone, Serialize, Deserialize)]
+//! pub struct As2orgInfo {
+//!     pub name: String,
+//!     pub country: String,
+//!     pub org_id: String,
+//!     pub org_name: String,
 //! }
 //! ```
 //!
@@ -36,12 +46,22 @@ pub struct AsName {
     pub asn: u32,
     pub name: String,
     pub country: String,
+    pub as2org: Option<As2orgInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct As2orgInfo {
+    pub name: String,
+    pub country: String,
+    pub org_id: String,
+    pub org_name: String,
 }
 
 const DATA_URL: &str = "https://ftp.ripe.net/ripe/asnames/asn.txt";
 
 pub fn get_asnames() -> Result<HashMap<u32, AsName>> {
     let text = oneio::read_to_string(DATA_URL)?;
+    let as2org = as2org_rs::As2org::new(None)?;
     let asnames = text
         .lines()
         .filter_map(|line| {
@@ -53,10 +73,18 @@ pub fn get_asnames() -> Result<HashMap<u32, AsName>> {
                 Some((name, country)) => (name, country),
                 None => return None,
             };
+            let asn = asn_str.parse::<u32>().unwrap();
+            let caida_info = as2org.get_as_info(asn).map(|info| As2orgInfo {
+                name: info.name.clone(),
+                country: info.country_code.clone(),
+                org_id: info.org_id.clone(),
+                org_name: info.org_name.clone(),
+            });
             Some(AsName {
-                asn: asn_str.parse::<u32>().unwrap(),
+                asn,
                 name: name_str.to_string(),
                 country: country_str.to_string(),
+                caida_info,
             })
         })
         .collect::<Vec<AsName>>();
