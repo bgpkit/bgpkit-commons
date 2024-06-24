@@ -65,7 +65,7 @@ pub fn load_bogon_prefixes() -> Result<Vec<BogonPrefix>> {
 
             let prefixes = splits[0]
                 .replace('\"', "")
-                .split(" ")
+                .split(' ')
                 .map(|x| x.trim().parse::<IpNet>().unwrap())
                 .collect::<Vec<IpNet>>();
             let description = splits[1].to_string();

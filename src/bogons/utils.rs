@@ -10,7 +10,7 @@ pub(crate) fn replace_commas_in_quotes(s: &str) -> String {
     let re = Regex::new(r#""[^"]*""#).unwrap();
     let result = re.replace_all(s, |caps: &regex::Captures| {
         let matched = caps.get(0).unwrap().as_str();
-        matched.replace(",", "")
+        matched.replace(',', "")
     });
     result.into_owned()
 }
