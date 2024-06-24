@@ -15,6 +15,7 @@
 //!     pub name: String,
 //!     pub country: String,
 //!     pub as2org: Option<As2orgInfo>,
+//!     pub population: Option<AsnPopulationData>,
 //! }
 //! #[derive(Debug, Clone, Serialize, Deserialize)]
 //! pub struct As2orgInfo {
@@ -22,6 +23,13 @@
 //!     pub country: String,
 //!     pub org_id: String,
 //!     pub org_name: String,
+//! }
+//! #[derive(Debug, Clone, Serialize, Deserialize)]
+//! pub struct AsnPopulationData {
+//!     pub user_count: i64,
+//!     pub percent_country: f64,
+//!     pub percent_global: f64,
+//!     pub sample_count: i64,
 //! }
 //! ```
 //!
@@ -37,9 +45,13 @@
 //! assert_eq!(asnames.get(&400644).unwrap().country, "US");
 //! ```
 
+mod population;
+
+use crate::asnames::population::AsnPopulationData;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use tracing::info;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AsName {
@@ -47,6 +59,7 @@ pub struct AsName {
     pub name: String,
     pub country: String,
     pub as2org: Option<As2orgInfo>,
+    pub population: Option<AsnPopulationData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,8 +73,13 @@ pub struct As2orgInfo {
 const DATA_URL: &str = "https://ftp.ripe.net/ripe/asnames/asn.txt";
 
 pub fn get_asnames() -> Result<HashMap<u32, AsName>> {
+    info!("loading asnames from RIPE NCC...");
     let text = oneio::read_to_string(DATA_URL)?;
+    info!("loading as2org data from CAIDA...");
     let as2org = as2org_rs::As2org::new(None)?;
+    info!("loading ASN population data from APNIC...");
+    let population = population::AsnPopulation::new()?;
+
     let asnames = text
         .lines()
         .filter_map(|line| {
@@ -80,11 +98,13 @@ pub fn get_asnames() -> Result<HashMap<u32, AsName>> {
                 org_id: info.org_id.clone(),
                 org_name: info.org_name.clone(),
             });
+            let population = population.get(asn);
             Some(AsName {
                 asn,
                 name: name_str.to_string(),
                 country: country_str.to_string(),
                 as2org,
+                population,
             })
         })
         .collect::<Vec<AsName>>();
