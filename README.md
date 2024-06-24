@@ -184,6 +184,29 @@ let prefix = IpNet::from_str("1.1.1.0/24").unwrap();
 assert_eq!(rpki.validate(&prefix, 13335), RpkiValidation::Valid);
 ```
 
+### Bogon utilities
+
+We provide a utility to check if an IP prefix or an ASN is a bogon.
+
+#### Data sources
+
+IANA special registries:
+* IPv4: https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml
+* IPv6: https://www.iana.org/assignments/iana-ipv6-special-registry/iana-ipv6-special-registry.xhtml
+* ASN: https://www.iana.org/assignments/iana-as-numbers-special-registry/iana-as-numbers-special-registry.xhtml
+
+#### Usage Examples
+
+```rust
+use bgpkit_commons::bogons::Bogons;
+
+let bogons = Bogons::new().unwrap();
+assert!(bogons.matches_str("10.0.0.0/9"));
+assert!(bogons.matches_str("112"));
+assert!(bogons.is_bogon_prefix(&"2001::/24".parse().unwrap()));
+assert!(bogons.is_bogon_asn(65535));
+```
+
 ### Feature Flags
 
 - `rustls`: use rustls instead of native-tls for the underlying HTTPS requests
