@@ -83,6 +83,7 @@ println!(
 Data source:
 - RIPE NCC asnames: <https://ftp.ripe.net/ripe/asnames/asn.txt>
 - CAIDA as-to-organization mapping: <https://www.caida.org/catalog/datasets/as-organizations/>
+- APNIC AS population data: <https://stats.labs.apnic.net/cgi-bin/aspop>
 
 #### Data structure
 
@@ -93,7 +94,7 @@ pub struct AsName {
     pub asn: u32,
     pub name: String,
     pub country: String,
-    pub as2org: Option<As2orgInfo>,
+    pub population: Option<AsnPopulationData>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct As2orgInfo {
@@ -101,6 +102,13 @@ pub struct As2orgInfo {
     pub country: String,
     pub org_id: String,
     pub org_name: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AsnPopulationData {
+    pub user_count: i64,
+    pub percent_country: f64,
+    pub percent_global: f64,
+    pub sample_count: i64,
 }
 ```
 
