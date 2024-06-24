@@ -72,16 +72,26 @@
 //! `asnames` is a module for Autonomous System (AS) names and country lookup
 //!
 //! Data source:
-//! - <https://ftp.ripe.net/ripe/asnames/asn.txt>
+//! - RIPE NCC asnames: <https://ftp.ripe.net/ripe/asnames/asn.txt>
+//! - CAIDA as-to-organization mapping: <https://www.caida.org/catalog/datasets/as-organizations/>
 //!
 //! ### Data structure
 //!
 //! ```rust
+//! use serde::{Deserialize, Serialize};
 //! #[derive(Debug, Clone)]
 //! pub struct AsName {
 //!     pub asn: u32,
 //!     pub name: String,
 //!     pub country: String,
+//!     pub as2org: Option<As2orgInfo>,
+//! }
+//! #[derive(Debug, Clone, Serialize, Deserialize)]
+//! pub struct As2orgInfo {
+//!     pub name: String,
+//!     pub country: String,
+//!     pub org_id: String,
+//!     pub org_name: String,
 //! }
 //! ```
 //!
