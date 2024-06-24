@@ -2,6 +2,7 @@ use bgpkit_commons::asnames::{get_asnames, AsName};
 use std::collections::HashMap;
 
 fn main() {
+    tracing_subscriber::fmt::init();
     let asnames: HashMap<u32, AsName> = get_asnames().unwrap();
     println!(
         "{}",
