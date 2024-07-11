@@ -9,7 +9,7 @@ use tracing::info;
 
 impl RpkiTrie {
     pub fn from_ripe_historical(date: NaiveDate) -> Result<Self> {
-        let mut trie = RpkiTrie::default();
+        let mut trie = RpkiTrie::new(Some(date));
         for rir in [
             Rir::AFRINIC,
             Rir::APNIC,

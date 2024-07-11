@@ -13,23 +13,26 @@
 
 mod cloudflare;
 mod ripe_historical;
-mod rpkiviews;
+// mod rpkiviews;
 
-use chrono::NaiveDateTime;
+use chrono::{NaiveDate, NaiveDateTime};
 use ipnet::IpNet;
 use ipnet_trie::IpnetTrie;
 
+use anyhow::Result;
 use std::fmt::Display;
 use std::str::FromStr;
 
 pub struct RpkiTrie {
     pub trie: IpnetTrie<RoaEntry>,
+    date: Option<NaiveDate>,
 }
 
 impl Default for RpkiTrie {
     fn default() -> Self {
         Self {
             trie: IpnetTrie::new(),
+            date: None,
         }
     }
 }
@@ -110,6 +113,13 @@ impl Display for RpkiValidation {
 }
 
 impl RpkiTrie {
+    pub fn new(date: Option<NaiveDate>) -> Self {
+        Self {
+            trie: IpnetTrie::new(),
+            date,
+        }
+    }
+
     /// insert an [RoaEntry]. If old value exists, it is returned.
     pub fn insert_roa(&mut self, roa: RoaEntry) -> Option<RoaEntry> {
         self.trie.insert(roa.prefix, roa)
@@ -123,7 +133,7 @@ impl RpkiTrie {
     }
 
     /// Lookup all ROAs that match a given prefix, including invalid ones
-    pub fn lookup(&self, prefix: &IpNet) -> Vec<RoaEntry> {
+    pub fn lookup_by_prefix(&self, prefix: &IpNet) -> Vec<RoaEntry> {
         let first_ip = prefix.addr();
         let mut all_matches = vec![];
         for (p, roa) in self.trie.matches(first_ip) {
@@ -141,7 +151,7 @@ impl RpkiTrie {
     /// - `RpkiValidation::Invalid` if the prefix-asn pair is invalid
     /// - `RpkiValidation::Unknown` if the prefix-asn pair is not found in RPKI
     pub fn validate(&self, prefix: &IpNet, asn: u32) -> RpkiValidation {
-        let matches = self.lookup(prefix);
+        let matches = self.lookup_by_prefix(prefix);
         if matches.is_empty() {
             return RpkiValidation::Unknown;
         }
@@ -153,5 +163,20 @@ impl RpkiTrie {
         }
         // there are matches but none of them is valid
         RpkiValidation::Invalid
+    }
+
+    pub fn reload(&mut self) -> Result<()> {
+        match self.date {
+            Some(date) => {
+                let trie = RpkiTrie::from_ripe_historical(date)?;
+                self.trie = trie.trie;
+            }
+            None => {
+                let trie = RpkiTrie::from_cloudflare()?;
+                self.trie = trie.trie;
+            }
+        }
+
+        Ok(())
     }
 }
