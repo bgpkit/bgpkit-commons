@@ -1,17 +1,20 @@
-use bgpkit_commons::asnames::{get_asnames, AsName};
-use std::collections::HashMap;
-
 fn main() {
-    tracing_subscriber::fmt::init();
-    let asnames: HashMap<u32, AsName> = get_asnames().unwrap();
+    tracing_subscriber::fmt().init();
+
+    let mut commons = bgpkit_commons::BgpkitCommons::new();
+    commons.load_asinfo(false, false, false).unwrap();
+
     println!(
         "{}",
-        serde_json::to_string_pretty(asnames.get(&400644).unwrap()).unwrap()
+        serde_json::to_string_pretty(&commons.asinfo_get(400644).unwrap()).unwrap()
     );
     assert_eq!(
-        asnames.get(&3333).unwrap().name,
+        commons.asinfo_get(3333).unwrap().unwrap().name,
         "RIPE-NCC-AS Reseaux IP Europeens Network Coordination Centre (RIPE NCC)"
     );
-    assert_eq!(asnames.get(&400644).unwrap().name, "BGPKIT-LLC");
-    assert_eq!(asnames.get(&400644).unwrap().country, "US");
+    assert_eq!(
+        commons.asinfo_get(400644).unwrap().unwrap().name,
+        "BGPKIT-LLC"
+    );
+    assert_eq!(commons.asinfo_get(400644).unwrap().unwrap().country, "US");
 }
