@@ -7,7 +7,9 @@
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::hash::Hash;
+use tracing::info;
 
 #[allow(dead_code)]
 const AS2REL_LATEST_COMBINED: &str = "https://data.bgpkit.com/as2rel/as2rel-latest.json.bz2";
@@ -15,7 +17,7 @@ const AS2REL_LATEST_COMBINED: &str = "https://data.bgpkit.com/as2rel/as2rel-late
 const AS2REL_LATEST_V4: &str = "https://data.bgpkit.com/as2rel/as2rel-v4-latest.json.bz2";
 const AS2REL_LATEST_V6: &str = "https://data.bgpkit.com/as2rel/as2rel-v6-latest.json.bz2";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AsRelationship {
     ProviderCustomer,
     CustomerProvider,
@@ -58,6 +60,21 @@ struct As2relEntry {
     rel: AsRelationship,
 }
 
+impl PartialEq for As2relEntry {
+    fn eq(&self, other: &Self) -> bool {
+        self.asn1 == other.asn1 && self.asn2 == other.asn2 && self.rel == other.rel
+    }
+}
+impl Eq for As2relEntry {}
+
+impl Hash for As2relEntry {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.asn1.hash(state);
+        self.asn2.hash(state);
+        self.rel.hash(state);
+    }
+}
+
 impl As2relEntry {
     fn reverse(&self) -> Self {
         Self {
@@ -75,8 +92,8 @@ impl As2relEntry {
 }
 
 pub struct As2relBgpkit {
-    v4_rels_map: HashMap<(u32, u32), As2relEntry>,
-    v6_rels_map: HashMap<(u32, u32), As2relEntry>,
+    v4_rels_map: HashMap<(u32, u32), HashSet<As2relEntry>>,
+    v6_rels_map: HashMap<(u32, u32), HashSet<As2relEntry>>,
     v4_max_peer_count: u32,
     v6_max_peer_count: u32,
 }
@@ -97,14 +114,27 @@ impl As2relBgpkit {
         let mut v4_max_peer_count = 0;
         let mut v6_max_peer_count = 0;
         for entry in v4_rels {
-            v4_rels_map.insert((entry.asn1, entry.asn2), entry);
-            v4_rels_map.insert((entry.asn2, entry.asn1), entry.reverse());
+            v4_rels_map
+                .entry((entry.asn1, entry.asn2))
+                .or_insert_with(HashSet::new)
+                .insert(entry);
+            v4_rels_map
+                .entry((entry.asn2, entry.asn1))
+                .or_insert_with(HashSet::new)
+                .insert(entry.reverse());
 
             v4_max_peer_count = v4_max_peer_count.max(entry.peers_count);
         }
         for entry in v6_rels {
-            v6_rels_map.insert((entry.asn1, entry.asn2), entry);
-            v6_rels_map.insert((entry.asn2, entry.asn1), entry.reverse());
+            v6_rels_map
+                .entry((entry.asn1, entry.asn2))
+                .or_insert_with(HashSet::new)
+                .insert(entry);
+            v6_rels_map
+                .entry((entry.asn2, entry.asn1))
+                .or_insert_with(HashSet::new)
+                .insert(entry.reverse());
+
             v6_max_peer_count = v6_max_peer_count.max(entry.peers_count);
         }
         Ok(Self {
@@ -119,43 +149,53 @@ impl As2relBgpkit {
         &self,
         asn1: u32,
         asn2: u32,
-    ) -> (Option<As2relBgpkitData>, Option<As2relBgpkitData>) {
-        let v4_entry = self.v4_rels_map.get(&(asn1, asn2));
-        let v6_entry = self.v6_rels_map.get(&(asn1, asn2));
+    ) -> (Vec<As2relBgpkitData>, Vec<As2relBgpkitData>) {
+        let v4_entry_set = self.v4_rels_map.get(&(asn1, asn2));
+        let v6_entry_set = self.v6_rels_map.get(&(asn1, asn2));
 
-        (
-            v4_entry.map(|entry| As2relBgpkitData {
-                rel: entry.rel,
-                peers_count: entry.peers_count,
-                max_peer_count: self.v4_max_peer_count,
-            }),
-            v6_entry.map(|entry| As2relBgpkitData {
-                rel: entry.rel,
-                peers_count: entry.peers_count,
-                max_peer_count: self.v6_max_peer_count,
-            }),
-        )
+        let v4_entries = v4_entry_set
+            .map(|set| {
+                set.iter()
+                    .map(|entry| As2relBgpkitData {
+                        rel: entry.rel,
+                        peers_count: entry.peers_count,
+                        max_peer_count: self.v4_max_peer_count,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let v6_entries = v6_entry_set
+            .map(|set| {
+                set.iter()
+                    .map(|entry| As2relBgpkitData {
+                        rel: entry.rel,
+                        peers_count: entry.peers_count,
+                        max_peer_count: self.v6_max_peer_count,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        (v4_entries, v6_entries)
     }
 }
 
 fn parse_as2rel_data(url: &str) -> Result<Vec<As2relEntry>> {
+    info!("loading AS2REL data from {}", url);
     let data: Vec<As2relEntry> = oneio::read_json_struct(url)?;
     Ok(data)
 }
 
 #[cfg(test)]
 mod tests {
-
     #[test]
     fn test_loading_raw_data() {
         let bgpkit = crate::as2rel::As2relBgpkit::new().unwrap();
         let (v4_data, v6_data) = bgpkit.lookup_pair(400644, 54825);
-        assert!(v4_data.is_none());
-        assert!(v6_data.is_some());
-        assert_eq!(
-            v6_data.unwrap().rel,
-            crate::as2rel::AsRelationship::CustomerProvider
-        );
+        assert!(v4_data.is_empty());
+        assert!(!v6_data.is_empty());
+        assert_eq!(v6_data.len(), 2);
         dbg!(v6_data);
     }
 }
