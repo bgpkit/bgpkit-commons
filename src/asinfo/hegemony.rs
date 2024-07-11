@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::{info, warn};
+use tracing::{debug, info};
 
 const IIJ_IHR_HEGEMONY_IPV4_GLOBAL: &str =
     "https://data.bgpkit.com/ihr/hegemony/ipv4/global/latest-simplified.csv.gz";
@@ -36,7 +36,7 @@ fn load_hegemony(path: &str) -> Result<Vec<(u32, f64)>> {
         let asn = match splits[0].parse::<u32>() {
             Ok(asn) => asn,
             Err(_) => {
-                warn!("invalid ASN: {}", text);
+                debug!("invalid ASN: {}", text);
                 continue;
             }
         };
