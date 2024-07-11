@@ -3,9 +3,9 @@
 //! This module provides functions to detect whether some given prefix or ASN is a bogon ASN.
 //!
 //! We obtain the bogon ASN and prefixes data from IANA's special registries:
-//! * IPv4: https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml
-//! * IPv6: https://www.iana.org/assignments/iana-ipv6-special-registry/iana-ipv6-special-registry.xhtml
-//! * ASN: https://www.iana.org/assignments/iana-as-numbers-special-registry/iana-as-numbers-special-registry.xhtml
+//! * IPv4: <https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml>
+//! * IPv6: <https://www.iana.org/assignments/iana-ipv6-special-registry/iana-ipv6-special-registry.xhtml>
+//! * ASN: <https://www.iana.org/assignments/iana-as-numbers-special-registry/iana-as-numbers-special-registry.xhtml>
 //!
 //! The simplest way to check bogon is to provide a &str:
 //! ```

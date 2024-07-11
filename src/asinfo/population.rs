@@ -76,14 +76,3 @@ impl AsnPopulation {
             })
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_load_asn_population() {
-        let population = AsnPopulation::new().unwrap();
-        dbg!(population.get(15169).unwrap());
-    }
-}

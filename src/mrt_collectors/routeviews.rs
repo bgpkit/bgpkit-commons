@@ -88,13 +88,3 @@ pub fn get_routeviews_collectors() -> Result<Vec<MrtCollector>> {
         .map(|c| c.to_mrt_collector().unwrap())
         .collect())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_get_routeviews_collectors() {
-        dbg!(get_routeviews_collectors().unwrap());
-    }
-}

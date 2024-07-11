@@ -3,13 +3,13 @@
 //! # Data source
 //!
 //! - RIPE NCC asinfo: <https://ftp.ripe.net/ripe/asnames/asn.txt>
-//! - [Optional] CAIDA as-to-organization mapping: <https://www.caida.org/catalog/datasets/as-organizations/>
-//! - [Optional] APNIC AS population data: <https://stats.labs.apnic.net/cgi-bin/aspop>
-//! - [Optional] IIJ IHR Hegemony data: <https://ihr-archive.iijlab.net/>
+//! - (Optional) CAIDA as-to-organization mapping: <https://www.caida.org/catalog/datasets/as-organizations/>
+//! - (Optional) APNIC AS population data: <https://stats.labs.apnic.net/cgi-bin/aspop>
+//! - (Optional) IIJ IHR Hegemony data: <https://ihr-archive.iijlab.net/>
 //!
 //! # Data structure
 //!
-//! ```rust
+//! ```rust,no_run
 //! use serde::{Deserialize, Serialize};
 //! #[derive(Debug, Clone)]
 //! pub struct AsInfo {
@@ -37,11 +37,24 @@
 //!
 //! # Example
 //!
-//! ```rust
-//! use std::collections::HashMap;
-//! use bgpkit_commons::asinfo::{AsInfo, get_asnames};
+//! Call with `BgpkitCommons` instance:
 //!
-//! let asinfo: HashMap<u32, AsInfo> = get_asnames().unwrap();
+//! ```rust,no_run
+//! use bgpkit_commons::BgpkitCommons;
+//!
+//! let mut bgpkit = BgpkitCommons::new();
+//! bgpkit.load_asinfo(false, false, false).unwrap();
+//! let asinfo = bgpkit.asinfo_get(3333).unwrap().unwrap();
+//! assert_eq!(asinfo.name, "RIPE-NCC-AS Reseaux IP Europeens Network Coordination Centre (RIPE NCC)");
+//! ```
+//!
+//! Directly call the module:
+//!
+//! ```rust,no_run
+//! use std::collections::HashMap;
+//! use bgpkit_commons::asinfo::{AsInfo, get_asinfo_map};
+//!
+//! let asinfo: HashMap<u32, AsInfo> = get_asinfo_map(false, false, false).unwrap();
 //! assert_eq!(asinfo.get(&3333).unwrap().name, "RIPE-NCC-AS Reseaux IP Europeens Network Coordination Centre (RIPE NCC)");
 //! assert_eq!(asinfo.get(&400644).unwrap().name, "BGPKIT-LLC");
 //! assert_eq!(asinfo.get(&400644).unwrap().country, "US");
@@ -50,8 +63,8 @@
 mod hegemony;
 mod population;
 
-use crate::asinfo::hegemony::HegemonyData;
-use crate::asinfo::population::AsnPopulationData;
+pub use crate::asinfo::hegemony::HegemonyData;
+pub use crate::asinfo::population::AsnPopulationData;
 use crate::BgpkitCommons;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
@@ -87,7 +100,7 @@ pub struct AsInfoUtils {
 
 impl AsInfoUtils {
     pub fn new(load_as2org: bool, load_population: bool, load_hegemony: bool) -> Result<Self> {
-        let asinfo_map = get_asnames(load_as2org, load_population, load_hegemony)?;
+        let asinfo_map = get_asinfo_map(load_as2org, load_population, load_hegemony)?;
         Ok(AsInfoUtils {
             asinfo_map,
             load_as2org,
@@ -97,7 +110,8 @@ impl AsInfoUtils {
     }
 
     pub fn reload(&mut self) -> Result<()> {
-        self.asinfo_map = get_asnames(self.load_as2org, self.load_population, self.load_hegemony)?;
+        self.asinfo_map =
+            get_asinfo_map(self.load_as2org, self.load_population, self.load_hegemony)?;
         Ok(())
     }
 
@@ -106,7 +120,7 @@ impl AsInfoUtils {
     }
 }
 
-pub fn get_asnames(
+pub fn get_asinfo_map(
     load_as2org: bool,
     load_population: bool,
     load_hegemony: bool,

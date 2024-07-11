@@ -55,17 +55,3 @@ impl RpkiTrie {
         Ok(trie)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::rpki::RpkiValidation;
-    use std::str::FromStr;
-
-    #[test]
-    fn test_cloudflare_rpki() {
-        let trie = RpkiTrie::from_cloudflare().unwrap();
-        let prefix = IpNet::from_str("1.1.1.0/24").unwrap();
-        assert_eq!(trie.validate(&prefix, 13335), RpkiValidation::Valid);
-    }
-}

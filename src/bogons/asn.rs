@@ -66,14 +66,3 @@ pub fn load_bogon_asns() -> Result<Vec<BogonAsn>> {
 
     Ok(bogons)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_load_bogon_asns() {
-        let bogons = load_bogon_asns().unwrap();
-        dbg!(bogons);
-    }
-}

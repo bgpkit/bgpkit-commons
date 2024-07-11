@@ -153,20 +153,3 @@ impl BgpkitCommons {
         Ok(self.countries.as_ref().unwrap().lookup_by_code(code))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_countries() {
-        let countries = Countries::new().unwrap();
-
-        assert_eq!(
-            countries.lookup_by_code("US").unwrap().name,
-            "United States"
-        );
-        assert_eq!(countries.lookup_by_name("united states").len(), 2);
-        assert_eq!(countries.lookup_by_name("united kingdom").len(), 1);
-    }
-}

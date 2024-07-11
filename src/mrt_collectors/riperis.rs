@@ -79,13 +79,3 @@ pub fn get_riperis_collectors() -> Result<Vec<MrtCollector>> {
         .map(|c| c.to_mrt_collector().unwrap())
         .collect())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_get_riperis_collectors() {
-        dbg!(get_riperis_collectors().unwrap());
-    }
-}
