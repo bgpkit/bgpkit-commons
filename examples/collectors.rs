@@ -1,4 +1,4 @@
-use bgpkit_commons::collectors::{
+use bgpkit_commons::mrt_collectors::{
     get_all_collectors, get_riperis_collectors, get_routeviews_collectors,
 };
 

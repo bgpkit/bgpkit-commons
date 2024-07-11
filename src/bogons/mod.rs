@@ -3,9 +3,9 @@
 //! This module provides functions to detect whether some given prefix or ASN is a bogon ASN.
 //!
 //! We obtain the bogon ASN and prefixes data from IANA's special registries:
-//! * IPv4: https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml
-//! * IPv6: https://www.iana.org/assignments/iana-ipv6-special-registry/iana-ipv6-special-registry.xhtml
-//! * ASN: https://www.iana.org/assignments/iana-as-numbers-special-registry/iana-as-numbers-special-registry.xhtml
+//! * IPv4: <https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml>
+//! * IPv6: <https://www.iana.org/assignments/iana-ipv6-special-registry/iana-ipv6-special-registry.xhtml>
+//! * ASN: <https://www.iana.org/assignments/iana-as-numbers-special-registry/iana-as-numbers-special-registry.xhtml>
 //!
 //! The simplest way to check bogon is to provide a &str:
 //! ```
@@ -21,6 +21,7 @@ mod utils;
 
 use crate::bogons::asn::load_bogon_asns;
 use crate::bogons::prefix::load_bogon_prefixes;
+use crate::BgpkitCommons;
 use anyhow::Result;
 pub use asn::BogonAsn;
 use ipnet::IpNet;
@@ -62,5 +63,20 @@ impl Bogons {
     /// Check if a given ASN is a bogon ASN.
     pub fn is_bogon_asn(&self, asn: u32) -> bool {
         self.asns.iter().any(|bogon_asn| bogon_asn.matches(asn))
+    }
+}
+
+impl BgpkitCommons {
+    pub fn bogons_match(&self, s: &str) -> Option<bool> {
+        self.bogons.as_ref().map(|b| b.matches_str(s))
+    }
+
+    pub fn bogons_match_prefix(&self, prefix: &str) -> Option<bool> {
+        let prefix = prefix.parse().ok()?;
+        self.bogons.as_ref().map(|b| b.is_bogon_prefix(&prefix))
+    }
+
+    pub fn bogons_match_asn(&self, asn: u32) -> Option<bool> {
+        self.bogons.as_ref().map(|b| b.is_bogon_asn(asn))
     }
 }

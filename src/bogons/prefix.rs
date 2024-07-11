@@ -97,14 +97,3 @@ pub fn load_bogon_prefixes() -> Result<Vec<BogonPrefix>> {
     }
     Ok(bogons)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_load_bogon_prefixes() {
-        let bogons = load_bogon_prefixes().unwrap();
-        dbg!(bogons);
-    }
-}

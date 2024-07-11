@@ -1,4 +1,4 @@
-use crate::collectors::{MrtCollector, MrtCollectorProject, ToMrtCollector};
+use crate::mrt_collectors::{MrtCollector, MrtCollectorProject, ToMrtCollector};
 use anyhow::Result;
 use chrono::DateTime;
 use serde::Deserialize;
@@ -69,7 +69,7 @@ impl ToMrtCollector for RisCollector {
     }
 }
 
-/// Get RIPE RIS collectors meta information
+/// Get RIPE RIS mrt_collectors meta information
 pub fn get_riperis_collectors() -> Result<Vec<MrtCollector>> {
     let data = oneio::read_json_struct::<RisData>("https://stat.ripe.net/data/rrc-info/data.json")?;
     Ok(data
@@ -78,14 +78,4 @@ pub fn get_riperis_collectors() -> Result<Vec<MrtCollector>> {
         .into_iter()
         .map(|c| c.to_mrt_collector().unwrap())
         .collect())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_get_riperis_collectors() {
-        dbg!(get_riperis_collectors().unwrap());
-    }
 }

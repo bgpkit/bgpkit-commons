@@ -1,5 +1,5 @@
 /*!
-Module for getting meta information for the public MRT collectors.
+Module for getting meta information for the public MRT mrt_collectors.
 
 Currently supported MRT collector projects:
 - RIPE RIS
@@ -7,7 +7,7 @@ Currently supported MRT collector projects:
 
 */
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize, Serializer};
 use std::cmp::Ordering;
@@ -16,6 +16,7 @@ use std::fmt::{Display, Formatter};
 mod riperis;
 mod routeviews;
 
+use crate::BgpkitCommons;
 pub use riperis::get_riperis_collectors;
 pub use routeviews::get_routeviews_collectors;
 
@@ -62,7 +63,7 @@ pub struct MrtCollector {
     pub data_url: String,
     /// collector activation timestamp
     pub activated_on: NaiveDateTime,
-    /// collector deactivation timestamp (None for active collectors)
+    /// collector deactivation timestamp (None for active mrt_collectors)
     pub deactivated_on: Option<NaiveDateTime>,
     /// country where the collect runs in
     pub country: String,
@@ -84,10 +85,38 @@ impl Ord for MrtCollector {
     }
 }
 
-/// Get all MRT collectors from all data sources
+/// Get all MRT mrt_collectors from all data sources
 pub fn get_all_collectors() -> Result<Vec<MrtCollector>> {
     let mut collectors = vec![];
     collectors.extend(get_routeviews_collectors()?);
     collectors.extend(get_riperis_collectors()?);
     Ok(collectors)
+}
+
+impl BgpkitCommons {
+    pub fn mrt_collectors_all(&self) -> Result<Vec<MrtCollector>> {
+        if self.mrt_collectors.is_none() {
+            return Err(anyhow!("mrt_collectors is not loaded"));
+        }
+        Ok(self.mrt_collectors.clone().unwrap())
+    }
+
+    pub fn mrt_collectors_by_name(&self, name: &str) -> Result<Option<MrtCollector>> {
+        if self.mrt_collectors.is_none() {
+            return Err(anyhow!("mrt_collectors is not loaded"));
+        }
+        Ok(self
+            .mrt_collectors
+            .as_ref()
+            .unwrap()
+            .iter()
+            .find(|x| x.name == name)
+            .cloned())
+    }
+
+    pub fn mrt_collectors_by_country(&self, country: &str) -> Option<Vec<MrtCollector>> {
+        self.mrt_collectors
+            .as_ref()
+            .map(|c| c.iter().filter(|x| x.country == country).cloned().collect())
+    }
 }

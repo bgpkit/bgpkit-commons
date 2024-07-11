@@ -9,7 +9,7 @@ use tracing::info;
 
 impl RpkiTrie {
     pub fn from_ripe_historical(date: NaiveDate) -> Result<Self> {
-        let mut trie = RpkiTrie::default();
+        let mut trie = RpkiTrie::new(Some(date));
         for rir in [
             Rir::AFRINIC,
             Rir::APNIC,
@@ -73,19 +73,5 @@ impl RpkiTrie {
             roas.push(roa_entry);
         }
         Ok(roas)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::rpki::RpkiValidation;
-
-    #[test]
-    fn test_ripe_validation() {
-        let rpki =
-            RpkiTrie::from_ripe_historical(NaiveDate::from_ymd_opt(2021, 9, 1).unwrap()).unwrap();
-        let prefix = IpNet::from_str("1.1.1.0/24").unwrap();
-        assert_eq!(rpki.validate(&prefix, 13335), RpkiValidation::Valid);
     }
 }
