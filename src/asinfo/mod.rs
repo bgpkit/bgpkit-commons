@@ -67,6 +67,7 @@ pub use crate::asinfo::hegemony::HegemonyData;
 pub use crate::asinfo::population::AsnPopulationData;
 use crate::BgpkitCommons;
 use anyhow::{anyhow, Result};
+use oneio::OneIoError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::info;
@@ -89,7 +90,8 @@ pub struct As2orgInfo {
     pub org_name: String,
 }
 
-const DATA_URL: &str = "https://ftp.ripe.net/ripe/asnames/asn.txt";
+const RIPE_RIS_ASN_TXT_URL: &str = "https://ftp.ripe.net/ripe/asnames/asn.txt";
+const BGPKIT_ASN_TXT_MIRROR_URL: &str = "https://data.bgpkit.com/commons/asn.txt";
 
 pub struct AsInfoUtils {
     pub asinfo_map: HashMap<u32, AsInfo>,
@@ -126,7 +128,19 @@ pub fn get_asinfo_map(
     load_hegemony: bool,
 ) -> Result<HashMap<u32, AsInfo>> {
     info!("loading asinfo from RIPE NCC...");
-    let text = oneio::read_to_string(DATA_URL)?;
+    let text = match oneio::read_to_string(BGPKIT_ASN_TXT_MIRROR_URL) {
+        Ok(t) => t,
+        Err(_) => match oneio::read_to_string(RIPE_RIS_ASN_TXT_URL) {
+            Ok(t) => t,
+            Err(e) => {
+                return Err(anyhow!(
+                    "error reading asinfo (neither mirror or original works): {}",
+                    e
+                ));
+            }
+        },
+    };
+
     let as2org_utils = if load_as2org {
         info!("loading as2org data from CAIDA...");
         Some(as2org_rs::As2org::new(None)?)
