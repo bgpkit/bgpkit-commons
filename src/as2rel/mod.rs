@@ -5,7 +5,8 @@
 //! * [as2rel-v4-latest.json.bz2](https://data.bgpkit.com/as2rel/as2rel-v4-latest.json.bz2): latest IPv4 relationship
 //! * [as2rel-v6-latest.json.bz2](https://data.bgpkit.com/as2rel/as2rel-v6-latest.json.bz2): latest IPv6 relationship
 
-use anyhow::Result;
+use crate::BgpkitCommons;
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
@@ -187,15 +188,16 @@ fn parse_as2rel_data(url: &str) -> Result<Vec<As2relEntry>> {
     Ok(data)
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_loading_raw_data() {
-        let bgpkit = crate::as2rel::As2relBgpkit::new().unwrap();
-        let (v4_data, v6_data) = bgpkit.lookup_pair(400644, 54825);
-        assert!(v4_data.is_empty());
-        assert!(!v6_data.is_empty());
-        assert_eq!(v6_data.len(), 2);
-        dbg!(v6_data);
+impl BgpkitCommons {
+    pub fn as2rel_lookup(
+        &self,
+        asn1: u32,
+        asn2: u32,
+    ) -> Result<(Vec<As2relBgpkitData>, Vec<As2relBgpkitData>)> {
+        if self.as2rel.is_none() {
+            return Err(anyhow!("as2rel is not loaded"));
+        }
+
+        Ok(self.as2rel.as_ref().unwrap().lookup_pair(asn1, asn2))
     }
 }

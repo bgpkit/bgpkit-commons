@@ -52,7 +52,8 @@ mod population;
 
 use crate::asinfo::hegemony::HegemonyData;
 use crate::asinfo::population::AsnPopulationData;
-use anyhow::Result;
+use crate::BgpkitCommons;
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::info;
@@ -171,4 +172,34 @@ pub fn get_asnames(
         asnames_map.insert(asname.asn, asname);
     }
     Ok(asnames_map)
+}
+
+impl BgpkitCommons {
+    pub fn asinfo_get(&self, asn: u32) -> Result<Option<AsInfo>> {
+        if self.asinfo.is_none() {
+            return Err(anyhow!("asinfo is not loaded"));
+        }
+
+        Ok(self.asinfo.as_ref().unwrap().get(asn).cloned())
+    }
+
+    pub fn asinfo_are_siblings(&self, asn1: u32, asn2: u32) -> Result<bool> {
+        if self.asinfo.is_none() {
+            return Err(anyhow!("asinfo is not loaded"));
+        }
+        if self.asinfo.as_ref().unwrap().load_as2org {
+            return Err(anyhow!("asinfo is not loaded with as2org data"));
+        }
+
+        let info_1_opt = self.asinfo_get(asn1)?;
+        let info_2_opt = self.asinfo_get(asn2)?;
+        if info_1_opt.is_some() || info_2_opt.is_some() {
+            let org_1_opt = info_1_opt.unwrap().as2org;
+            let org_2_opt = info_2_opt.unwrap().as2org;
+            if org_1_opt.is_some() || org_2_opt.is_some() {
+                return Ok(org_1_opt.unwrap().org_id == org_2_opt.unwrap().org_id);
+            }
+        }
+        Ok(false)
+    }
 }

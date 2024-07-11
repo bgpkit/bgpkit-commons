@@ -19,24 +19,7 @@
 //! ### Countries
 //!
 //! This structure represents a collection of countries. It provides various methods to lookup and retrieve country information.
-//!
-//! ## Methods
-//!
-//! ### Countries::new()
-//!
-//! This method fetches country data from the GeoNames database and returns a `Countries` instance.
-//!
-//! ### Countries::lookup_by_code(&self, code: &str) -> Option<Country>
-//!
-//! This method looks up a country by its 2-letter country code. It returns an `Option<Country>`.
-//!
-//! ### Countries::lookup_by_name(&self, name: &str) -> Vec<Country>
-//!
-//! This method looks up countries by name. The search is case-insensitive and returns countries whose names contain the given string. It returns a `Vec<Country>`.
-//!
-//! ### Countries::all_countries(&self) -> Vec<Country>
-//!
-//! This method returns all countries in the collection. It returns a `Vec<Country>`.
+use crate::BgpkitCommons;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -137,6 +120,37 @@ impl Countries {
     /// Get all countries
     pub fn all_countries(&self) -> Vec<Country> {
         self.countries.values().cloned().collect()
+    }
+}
+
+impl BgpkitCommons {
+    pub fn country_all(&self) -> Result<Vec<Country>> {
+        if self.countries.is_none() {
+            return Err(anyhow!("countries is not loaded"));
+        }
+
+        Ok(self.countries.as_ref().unwrap().all_countries())
+    }
+
+    pub fn country_by_code(&self, code: &str) -> Result<Option<Country>> {
+        if self.countries.is_none() {
+            return Err(anyhow!("countries is not loaded"));
+        }
+        Ok(self.countries.as_ref().unwrap().lookup_by_code(code))
+    }
+
+    pub fn country_by_name(&self, name: &str) -> Result<Vec<Country>> {
+        if self.countries.is_none() {
+            return Err(anyhow!("countries is not loaded"));
+        }
+        Ok(self.countries.as_ref().unwrap().lookup_by_name(name))
+    }
+
+    pub fn country_by_code3(&self, code: &str) -> Result<Option<Country>> {
+        if self.countries.is_none() {
+            return Err(anyhow!("countries is not loaded"));
+        }
+        Ok(self.countries.as_ref().unwrap().lookup_by_code(code))
     }
 }
 

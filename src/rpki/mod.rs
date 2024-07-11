@@ -19,7 +19,8 @@ use chrono::{NaiveDate, NaiveDateTime};
 use ipnet::IpNet;
 use ipnet_trie::IpnetTrie;
 
-use anyhow::Result;
+use crate::BgpkitCommons;
+use anyhow::{anyhow, Result};
 use std::fmt::Display;
 use std::str::FromStr;
 
@@ -178,5 +179,25 @@ impl RpkiTrie {
         }
 
         Ok(())
+    }
+}
+
+impl BgpkitCommons {
+    pub fn rpki_lookup_by_prefix(&self, prefix: &str) -> Result<Vec<RoaEntry>> {
+        if self.rpki_trie.is_none() {
+            return Err(anyhow!("rpki is not loaded"));
+        }
+
+        let prefix = prefix.parse()?;
+
+        Ok(self.rpki_trie.as_ref().unwrap().lookup_by_prefix(&prefix))
+    }
+
+    pub fn rpki_validate(&self, asn: u32, prefix: &str) -> Result<RpkiValidation> {
+        if self.rpki_trie.is_none() {
+            return Err(anyhow!("rpki is not loaded"));
+        }
+        let prefix = prefix.parse()?;
+        Ok(self.rpki_trie.as_ref().unwrap().validate(&prefix, asn))
     }
 }
