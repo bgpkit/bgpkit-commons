@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.7.0 -2024-07-11
+
+* consolidate all functionalities into a single `BgpkitCommons` instance
+
+Example usage:
+
+```rust
+use bgpkit_commons::BgpkitCommons;
+let mut bgpkit = BgpkitCommons::new();
+bgpkit.load_bogons().unwrap();
+assert!(bgpkit.bogons_match("23456").unwrap());
+```
+
 ## v0.6.0 - 2024-06-26
 
 * [Added `bogons` module](https://github.com/bgpkit/bgpkit-commons/pull/12) to check if an IP prefix or an ASN is a
