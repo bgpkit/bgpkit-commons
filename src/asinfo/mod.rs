@@ -3,14 +3,16 @@
 //! # Data source
 //!
 //! - RIPE NCC asinfo: <https://ftp.ripe.net/ripe/asnames/asn.txt>
-//! - CAIDA as-to-organization mapping: <https://www.caida.org/catalog/datasets/as-organizations/>
+//! - [Optional] CAIDA as-to-organization mapping: <https://www.caida.org/catalog/datasets/as-organizations/>
+//! - [Optional] APNIC AS population data: <https://stats.labs.apnic.net/cgi-bin/aspop>
+//! - [Optional] IIJ IHR Hegemony data: <https://ihr-archive.iijlab.net/>
 //!
 //! # Data structure
 //!
 //! ```rust
 //! use serde::{Deserialize, Serialize};
 //! #[derive(Debug, Clone)]
-//! pub struct AsName {
+//! pub struct AsInfo {
 //!     pub asn: u32,
 //!     pub name: String,
 //!     pub country: String,
