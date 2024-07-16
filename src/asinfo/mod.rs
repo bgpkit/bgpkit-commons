@@ -215,7 +215,7 @@ impl BgpkitCommons {
         if self.asinfo.is_none() {
             return Err(anyhow!("asinfo is not loaded"));
         }
-        if self.asinfo.as_ref().unwrap().load_as2org {
+        if !self.asinfo.as_ref().unwrap().load_as2org {
             return Err(anyhow!("asinfo is not loaded with as2org data"));
         }
 
