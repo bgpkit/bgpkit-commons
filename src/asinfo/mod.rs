@@ -224,7 +224,7 @@ impl BgpkitCommons {
         if info_1_opt.is_some() && info_2_opt.is_some() {
             let org_1_opt = info_1_opt.unwrap().as2org;
             let org_2_opt = info_2_opt.unwrap().as2org;
-            if org_1_opt.is_some() || org_2_opt.is_some() {
+            if org_1_opt.is_some() && org_2_opt.is_some() {
                 return Ok(org_1_opt.unwrap().org_id == org_2_opt.unwrap().org_id);
             }
         }
