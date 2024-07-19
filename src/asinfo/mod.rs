@@ -62,12 +62,13 @@
 
 mod hegemony;
 mod population;
+mod sibling_orgs;
 
 pub use crate::asinfo::hegemony::HegemonyData;
 pub use crate::asinfo::population::AsnPopulationData;
+use crate::asinfo::sibling_orgs::SiblingOrgsUtils;
 use crate::BgpkitCommons;
 use anyhow::{anyhow, Result};
-use oneio::OneIoError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::info;
@@ -95,6 +96,7 @@ const BGPKIT_ASN_TXT_MIRROR_URL: &str = "https://data.bgpkit.com/commons/asn.txt
 
 pub struct AsInfoUtils {
     pub asinfo_map: HashMap<u32, AsInfo>,
+    pub sibling_orgs: Option<SiblingOrgsUtils>,
     pub load_as2org: bool,
     pub load_population: bool,
     pub load_hegemony: bool,
@@ -103,8 +105,14 @@ pub struct AsInfoUtils {
 impl AsInfoUtils {
     pub fn new(load_as2org: bool, load_population: bool, load_hegemony: bool) -> Result<Self> {
         let asinfo_map = get_asinfo_map(load_as2org, load_population, load_hegemony)?;
+        let sibling_orgs = if load_as2org {
+            Some(SiblingOrgsUtils::new()?)
+        } else {
+            None
+        };
         Ok(AsInfoUtils {
             asinfo_map,
+            sibling_orgs,
             load_as2org,
             load_population,
             load_hegemony,
@@ -225,7 +233,18 @@ impl BgpkitCommons {
             let org_1_opt = info_1_opt.unwrap().as2org;
             let org_2_opt = info_2_opt.unwrap().as2org;
             if org_1_opt.is_some() && org_2_opt.is_some() {
-                return Ok(org_1_opt.unwrap().org_id == org_2_opt.unwrap().org_id);
+                let org_id_1 = org_1_opt.unwrap().org_id;
+                let org_id_2 = org_2_opt.unwrap().org_id;
+
+                return Ok(org_id_1 == org_id_2
+                    || self
+                        .asinfo
+                        .as_ref()
+                        .unwrap()
+                        .sibling_orgs
+                        .as_ref()
+                        .unwrap()
+                        .are_sibling_orgs(org_id_1.as_str(), org_id_2.as_str()));
             }
         }
         Ok(false)

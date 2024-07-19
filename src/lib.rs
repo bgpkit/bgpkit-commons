@@ -148,3 +148,15 @@ impl BgpkitCommons {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_siblings() {
+        let mut commons = BgpkitCommons::new();
+        commons.load_asinfo(true, false, false).unwrap();
+        assert!(commons.asinfo_are_siblings(174, 1239).unwrap());
+    }
+}
