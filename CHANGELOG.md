@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.7.1 - 2024-10-03
+
+### Highlights
+
+* add new asinfo_all() function to return information for all ASNs in a single call
+
+### Other changes
+
+* improve documentation
+* improve ci testing workflow
+* add integration tests
+* update dependencies
+
 ## v0.7.0 -2024-07-11
 
 * consolidate all functionalities into a single `BgpkitCommons` instance
