@@ -135,9 +135,8 @@ impl RpkiTrie {
 
     /// Lookup all ROAs that match a given prefix, including invalid ones
     pub fn lookup_by_prefix(&self, prefix: &IpNet) -> Vec<RoaEntry> {
-        let first_ip = prefix.addr();
         let mut all_matches = vec![];
-        for (p, roa) in self.trie.matches(first_ip) {
+        for (p, roa) in self.trie.matches(prefix) {
             if p.contains(prefix) && roa.max_length >= prefix.prefix_len() {
                 all_matches.push(*roa);
             }
