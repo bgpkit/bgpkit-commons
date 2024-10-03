@@ -11,13 +11,14 @@
 //!
 //! ```rust,no_run
 //! use serde::{Deserialize, Serialize};
-//! #[derive(Debug, Clone)]
+//! #[derive(Debug, Clone, Serialize, Deserialize)]
 //! pub struct AsInfo {
 //!     pub asn: u32,
 //!     pub name: String,
 //!     pub country: String,
 //!     pub as2org: Option<As2orgInfo>,
 //!     pub population: Option<AsnPopulationData>,
+//!     pub hegemony: Option<HegemonyData>,
 //! }
 //! #[derive(Debug, Clone, Serialize, Deserialize)]
 //! pub struct As2orgInfo {
@@ -32,6 +33,12 @@
 //!     pub percent_country: f64,
 //!     pub percent_global: f64,
 //!     pub sample_count: i64,
+//! }
+//! #[derive(Debug, Clone, Serialize, Deserialize)]
+//! pub struct HegemonyData {
+//!     pub asn: u32,
+//!     pub ipv4: f64,
+//!     pub ipv6: f64,
 //! }
 //! ```
 //!
@@ -58,6 +65,16 @@
 //! assert_eq!(asinfo.get(&3333).unwrap().name, "RIPE-NCC-AS Reseaux IP Europeens Network Coordination Centre (RIPE NCC)");
 //! assert_eq!(asinfo.get(&400644).unwrap().name, "BGPKIT-LLC");
 //! assert_eq!(asinfo.get(&400644).unwrap().country, "US");
+//! ```
+//!
+//! Check if two ASNs are siblings:
+//!
+//! ```rust,no_run
+//! use bgpkit_commons::BgpkitCommons;
+//!
+//! let mut bgpkit = BgpkitCommons::new();
+//! bgpkit.load_asinfo(true, false, false).unwrap();
+//! let are_siblings = bgpkit.asinfo_are_siblings(3333, 3334).unwrap();
 //! ```
 
 mod hegemony;
@@ -211,6 +228,14 @@ pub fn get_asinfo_map(
 }
 
 impl BgpkitCommons {
+    pub fn asinfo_all(&self) -> Result<HashMap<u32, AsInfo>> {
+        if self.asinfo.is_none() {
+            return Err(anyhow!("asinfo is not loaded"));
+        }
+
+        Ok(self.asinfo.as_ref().unwrap().asinfo_map.clone())
+    }
+
     pub fn asinfo_get(&self, asn: u32) -> Result<Option<AsInfo>> {
         if self.asinfo.is_none() {
             return Err(anyhow!("asinfo is not loaded"));
