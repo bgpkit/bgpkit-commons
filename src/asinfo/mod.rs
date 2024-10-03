@@ -228,6 +228,22 @@ pub fn get_asinfo_map(
 }
 
 impl BgpkitCommons {
+    /// Returns a HashMap containing all AS information.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(HashMap<u32, AsInfo>)`: A HashMap where the key is the ASN and the value is the corresponding AsInfo.
+    /// - `Err`: If the asinfo is not loaded.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use bgpkit_commons::BgpkitCommons;
+    ///
+    /// let mut bgpkit = BgpkitCommons::new();
+    /// bgpkit.load_asinfo(false, false, false).unwrap();
+    /// let all_asinfo = bgpkit.asinfo_all().unwrap();
+    /// ```
     pub fn asinfo_all(&self) -> Result<HashMap<u32, AsInfo>> {
         if self.asinfo.is_none() {
             return Err(anyhow!("asinfo is not loaded"));
@@ -236,6 +252,27 @@ impl BgpkitCommons {
         Ok(self.asinfo.as_ref().unwrap().asinfo_map.clone())
     }
 
+    /// Retrieves AS information for a specific ASN.
+    ///
+    /// # Arguments
+    ///
+    /// * `asn` - The Autonomous System Number to look up.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(Some(AsInfo))`: The AS information if found.
+    /// - `Ok(None)`: If the ASN is not found in the database.
+    /// - `Err`: If the asinfo is not loaded.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use bgpkit_commons::BgpkitCommons;
+    ///
+    /// let mut bgpkit = BgpkitCommons::new();
+    /// bgpkit.load_asinfo(false, false, false).unwrap();
+    /// let asinfo = bgpkit.asinfo_get(3333).unwrap();
+    /// ```
     pub fn asinfo_get(&self, asn: u32) -> Result<Option<AsInfo>> {
         if self.asinfo.is_none() {
             return Err(anyhow!("asinfo is not loaded"));
@@ -244,6 +281,31 @@ impl BgpkitCommons {
         Ok(self.asinfo.as_ref().unwrap().get(asn).cloned())
     }
 
+    /// Checks if two ASNs are siblings (belong to the same organization).
+    ///
+    /// # Arguments
+    ///
+    /// * `asn1` - The first Autonomous System Number.
+    /// * `asn2` - The second Autonomous System Number.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(bool)`: True if the ASNs are siblings, false otherwise.
+    /// - `Err`: If the asinfo is not loaded or not loaded with as2org data.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use bgpkit_commons::BgpkitCommons;
+    ///
+    /// let mut bgpkit = BgpkitCommons::new();
+    /// bgpkit.load_asinfo(true, false, false).unwrap();
+    /// let are_siblings = bgpkit.asinfo_are_siblings(3333, 3334).unwrap();
+    /// ```
+    ///
+    /// # Note
+    ///
+    /// This function requires the asinfo to be loaded with as2org data.
     pub fn asinfo_are_siblings(&self, asn1: u32, asn2: u32) -> Result<bool> {
         if self.asinfo.is_none() {
             return Err(anyhow!("asinfo is not loaded"));
