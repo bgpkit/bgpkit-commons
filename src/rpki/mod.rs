@@ -21,11 +21,13 @@ use ipnet_trie::IpnetTrie;
 
 use crate::BgpkitCommons;
 use anyhow::{anyhow, Result};
+pub use cloudflare::*;
 use std::fmt::Display;
 use std::str::FromStr;
 
 pub struct RpkiTrie {
     pub trie: IpnetTrie<RoaEntry>,
+    pub aspas: Vec<CfAspaEntry>,
     date: Option<NaiveDate>,
 }
 
@@ -33,6 +35,7 @@ impl Default for RpkiTrie {
     fn default() -> Self {
         Self {
             trie: IpnetTrie::new(),
+            aspas: vec![],
             date: None,
         }
     }
@@ -115,10 +118,7 @@ impl Display for RpkiValidation {
 
 impl RpkiTrie {
     pub fn new(date: Option<NaiveDate>) -> Self {
-        Self {
-            trie: IpnetTrie::new(),
-            date,
-        }
+        Self::default()
     }
 
     /// insert an [RoaEntry]. If old value exists, it is returned.
