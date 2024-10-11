@@ -94,8 +94,10 @@ impl RpkiTrie {
         let data: CfData =
             oneio::read_json_struct::<CfData>("https://rpki.cloudflare.com/rpki.json")?;
 
-        let mut trie = RpkiTrie::default();
-        trie.aspas = data.aspas;
+        let mut trie = RpkiTrie {
+            aspas: data.aspas,
+            ..Default::default()
+        };
 
         for roa in data.roas {
             let prefix = roa.prefix.parse::<IpNet>()?;

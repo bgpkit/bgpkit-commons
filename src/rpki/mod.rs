@@ -118,7 +118,11 @@ impl Display for RpkiValidation {
 
 impl RpkiTrie {
     pub fn new(date: Option<NaiveDate>) -> Self {
-        Self::default()
+        Self {
+            trie: IpnetTrie::new(),
+            aspas: vec![],
+            date,
+        }
     }
 
     /// insert an [RoaEntry]. If old value exists, it is returned.
