@@ -79,4 +79,14 @@ impl BgpkitCommons {
     pub fn bogons_match_asn(&self, asn: u32) -> Option<bool> {
         self.bogons.as_ref().map(|b| b.is_bogon_asn(asn))
     }
+
+    /// Get all bogon prefixes.
+    pub fn get_bogon_prefixes(&self) -> Option<Vec<BogonPrefix>> {
+        self.bogons.as_ref().map(|b| b.prefixes.clone())
+    }
+
+    /// Get all bogon ASNs.
+    pub fn get_bogon_asns(&self) -> Option<Vec<BogonAsn>> {
+        self.bogons.as_ref().map(|b| b.asns.clone())
+    }
 }
