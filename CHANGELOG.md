@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.7.2 - 2024-10-11
+
+### Highlights
+
+* allow exporting all bogon prefixes and asns
+* update cloudflare RPKI data parsing, also added ASPA data
+    * added examples/list_aspas.rs to demonstrate how to list all ASPAs
+
 ## v0.7.1 - 2024-10-03
 
 ### Highlights
