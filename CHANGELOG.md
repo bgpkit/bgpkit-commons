@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.7.3 - 2024-10-31
+
+### Highlights
+
+* add MRT collector peers information
+    * struct exposed as `crate::mrt_collectors::MrtCollectorPeer`
+    * fetch data by calling `commons.load_mrt_collector_peers()` first
+    * access all peers by calling `commons.mrt_collector_peers()`
+    * access full-feed peers only by calling `commons.mrt_collector_peers_full_feed()`
+
+Example usage:
+
+```rust
+use bgpkit_commons::BgpkitCommons;
+fn main() {
+    let mut commons = BgpkitCommons::new();
+    commons.load_mrt_collector_peers().unwrap();
+    let peers = commons.mrt_collector_peers();
+    for peer in peers {
+        println!("{:?}", peer);
+    }
+    let full_feed_peers = commons.mrt_collector_peers_full_feed();
+    for peer in full_feed_peers {
+        println!("{:?}", peer);
+    }
+}
+```
+
 ## v0.7.2 - 2024-10-11
 
 ### Highlights
