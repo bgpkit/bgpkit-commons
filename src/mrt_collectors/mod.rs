@@ -13,10 +13,12 @@ use serde::{Deserialize, Serialize, Serializer};
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 
+mod peers;
 mod riperis;
 mod routeviews;
 
 use crate::BgpkitCommons;
+pub use peers::{get_mrt_collector_peers, MrtCollectorPeer};
 pub use riperis::get_riperis_collectors;
 pub use routeviews::get_routeviews_collectors;
 
@@ -118,5 +120,29 @@ impl BgpkitCommons {
         self.mrt_collectors
             .as_ref()
             .map(|c| c.iter().filter(|x| x.country == country).cloned().collect())
+    }
+
+    pub fn mrt_collector_peers_all(&self) -> Result<Vec<MrtCollectorPeer>> {
+        if self.mrt_collector_peers.is_none() {
+            return Err(anyhow!(
+                "mrt_collector_peers is not loaded, call commons.load_mrt_collector_peers() first"
+            ));
+        }
+        Ok(self.mrt_collector_peers.clone().unwrap())
+    }
+
+    pub fn mrt_collector_peers_full_feed(&self) -> Result<Vec<MrtCollectorPeer>> {
+        if self.mrt_collector_peers.is_none() {
+            return Err(anyhow!("mrt_collector_peers is not loaded"));
+        }
+        // Filter out mrt_collectors that have full feed
+        Ok(self
+            .mrt_collector_peers
+            .as_ref()
+            .unwrap()
+            .iter()
+            .filter(|x| x.is_full_feed())
+            .cloned()
+            .collect())
     }
 }

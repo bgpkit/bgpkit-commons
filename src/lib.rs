@@ -48,7 +48,7 @@ use crate::as2rel::As2relBgpkit;
 use crate::asinfo::AsInfoUtils;
 use crate::bogons::Bogons;
 use crate::countries::Countries;
-use crate::mrt_collectors::MrtCollector;
+use crate::mrt_collectors::{MrtCollector, MrtCollectorPeer};
 use crate::rpki::RpkiTrie;
 use anyhow::Result;
 use chrono::NaiveDate;
@@ -65,6 +65,7 @@ pub struct BgpkitCommons {
     countries: Option<Countries>,
     rpki_trie: Option<RpkiTrie>,
     mrt_collectors: Option<Vec<MrtCollector>>,
+    mrt_collector_peers: Option<Vec<MrtCollectorPeer>>,
     bogons: Option<Bogons>,
     asinfo: Option<AsInfoUtils>,
     as2rel: Option<As2relBgpkit>,
@@ -85,6 +86,9 @@ impl BgpkitCommons {
         }
         if self.mrt_collectors.is_some() {
             self.load_mrt_collectors()?;
+        }
+        if self.mrt_collector_peers.is_some() {
+            self.load_mrt_collector_peers()?;
         }
         if self.bogons.is_some() {
             self.load_bogons()?;
@@ -118,6 +122,12 @@ impl BgpkitCommons {
     /// Load MRT mrt_collectors data
     pub fn load_mrt_collectors(&mut self) -> Result<()> {
         self.mrt_collectors = Some(mrt_collectors::get_all_collectors()?);
+        Ok(())
+    }
+
+    /// Load MRT mrt_collectors data
+    pub fn load_mrt_collector_peers(&mut self) -> Result<()> {
+        self.mrt_collector_peers = Some(mrt_collectors::get_mrt_collector_peers()?);
         Ok(())
     }
 
