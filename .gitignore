@@ -2,3 +2,6 @@
 /Cargo.lock
 .idea
 *.json
+
+# ignore output files from examples
+as2org.jsonl
