@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.7.4 - 2025-04-04
+
+### Highlights
+
+* Update `as2org-rs` crate to `v1.0.0` which fixes an issue of latin-1 encoding for org names
+
 ## v0.7.3 - 2024-10-31
 
 ### Highlights
