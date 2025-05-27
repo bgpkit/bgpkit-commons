@@ -6,6 +6,7 @@
 //! - (Optional) CAIDA as-to-organization mapping: <https://www.caida.org/catalog/datasets/as-organizations/>
 //! - (Optional) APNIC AS population data: <https://stats.labs.apnic.net/cgi-bin/aspop>
 //! - (Optional) IIJ IHR Hegemony data: <https://ihr-archive.iijlab.net/>
+//! - (Optional) PeeringDB data: <https://www.peeringdb.com>
 //!
 //! # Data structure
 //!
@@ -39,6 +40,14 @@
 //!     pub asn: u32,
 //!     pub ipv4: f64,
 //!     pub ipv6: f64,
+//! }
+//! #[derive(Debug, Clone, Serialize, Deserialize)]
+//! pub struct PeeringdbData {
+//!     pub asn: u32,
+//!     pub name: Option<String>,
+//!     pub name_long: Option<String>,
+//!     pub aka: Option<String>,
+//!     pub irr_as_set: Option<String>,
 //! }
 //! ```
 //!
@@ -78,17 +87,20 @@
 //! ```
 
 mod hegemony;
+mod peeringdb;
 mod population;
 mod sibling_orgs;
 
-pub use crate::asinfo::hegemony::HegemonyData;
-pub use crate::asinfo::population::AsnPopulationData;
-use crate::asinfo::sibling_orgs::SiblingOrgsUtils;
 use crate::BgpkitCommons;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
+use peeringdb::PeeringdbData;
 use serde::{Deserialize, Serialize};
+use sibling_orgs::SiblingOrgsUtils;
 use std::collections::HashMap;
 use tracing::info;
+
+pub use hegemony::HegemonyData;
+pub use population::AsnPopulationData;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AsInfo {
@@ -98,6 +110,7 @@ pub struct AsInfo {
     pub as2org: Option<As2orgInfo>,
     pub population: Option<AsnPopulationData>,
     pub hegemony: Option<HegemonyData>,
+    pub peeringdb: Option<PeeringdbData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -117,11 +130,18 @@ pub struct AsInfoUtils {
     pub load_as2org: bool,
     pub load_population: bool,
     pub load_hegemony: bool,
+    pub load_peeringdb: bool,
 }
 
 impl AsInfoUtils {
-    pub fn new(load_as2org: bool, load_population: bool, load_hegemony: bool) -> Result<Self> {
-        let asinfo_map = get_asinfo_map(load_as2org, load_population, load_hegemony)?;
+    pub fn new(
+        load_as2org: bool,
+        load_population: bool,
+        load_hegemony: bool,
+        load_peeringdb: bool,
+    ) -> Result<Self> {
+        let asinfo_map =
+            get_asinfo_map(load_as2org, load_population, load_hegemony, load_peeringdb)?;
         let sibling_orgs = if load_as2org {
             Some(SiblingOrgsUtils::new()?)
         } else {
@@ -133,12 +153,17 @@ impl AsInfoUtils {
             load_as2org,
             load_population,
             load_hegemony,
+            load_peeringdb,
         })
     }
 
     pub fn reload(&mut self) -> Result<()> {
-        self.asinfo_map =
-            get_asinfo_map(self.load_as2org, self.load_population, self.load_hegemony)?;
+        self.asinfo_map = get_asinfo_map(
+            self.load_as2org,
+            self.load_population,
+            self.load_hegemony,
+            self.load_peeringdb,
+        )?;
         Ok(())
     }
 
@@ -151,6 +176,7 @@ pub fn get_asinfo_map(
     load_as2org: bool,
     load_population: bool,
     load_hegemony: bool,
+    load_peeringdb: bool,
 ) -> Result<HashMap<u32, AsInfo>> {
     info!("loading asinfo from RIPE NCC...");
     let text = match oneio::read_to_string(BGPKIT_ASN_TXT_MIRROR_URL) {
@@ -184,6 +210,12 @@ pub fn get_asinfo_map(
     } else {
         None
     };
+    let peeringdb_utils = if load_peeringdb {
+        info!("loading peeringdb data...");
+        Some(peeringdb::Peeringdb::new()?)
+    } else {
+        None
+    };
 
     let asnames = text
         .lines()
@@ -209,6 +241,9 @@ pub fn get_asinfo_map(
             let hegemony = hegemony_utils
                 .as_ref()
                 .and_then(|h| h.get_score(asn).cloned());
+            let peeringdb = peeringdb_utils
+                .as_ref()
+                .and_then(|h| h.get_data(asn).cloned());
             Some(AsInfo {
                 asn,
                 name: name_str.to_string(),
@@ -216,6 +251,7 @@ pub fn get_asinfo_map(
                 as2org,
                 population,
                 hegemony,
+                peeringdb,
             })
         })
         .collect::<Vec<AsInfo>>();

@@ -143,11 +143,13 @@ impl BgpkitCommons {
         load_as2org: bool,
         load_population: bool,
         load_hegemony: bool,
+        load_peeringdb: bool,
     ) -> Result<()> {
         self.asinfo = Some(AsInfoUtils::new(
             load_as2org,
             load_population,
             load_hegemony,
+            load_peeringdb,
         )?);
         Ok(())
     }
@@ -166,7 +168,7 @@ mod tests {
     #[test]
     fn test_siblings() {
         let mut commons = BgpkitCommons::new();
-        commons.load_asinfo(true, false, false).unwrap();
+        commons.load_asinfo(true, false, false, false).unwrap();
         assert!(commons.asinfo_are_siblings(174, 1239).unwrap());
     }
 }
