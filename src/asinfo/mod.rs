@@ -59,7 +59,7 @@
 //! use bgpkit_commons::BgpkitCommons;
 //!
 //! let mut bgpkit = BgpkitCommons::new();
-//! bgpkit.load_asinfo(false, false, false).unwrap();
+//! bgpkit.load_asinfo(false, false, false, false).unwrap();
 //! let asinfo = bgpkit.asinfo_get(3333).unwrap().unwrap();
 //! assert_eq!(asinfo.name, "RIPE-NCC-AS Reseaux IP Europeens Network Coordination Centre (RIPE NCC)");
 //! ```
@@ -70,7 +70,7 @@
 //! use std::collections::HashMap;
 //! use bgpkit_commons::asinfo::{AsInfo, get_asinfo_map};
 //!
-//! let asinfo: HashMap<u32, AsInfo> = get_asinfo_map(false, false, false).unwrap();
+//! let asinfo: HashMap<u32, AsInfo> = get_asinfo_map(false, false, false, false).unwrap();
 //! assert_eq!(asinfo.get(&3333).unwrap().name, "RIPE-NCC-AS Reseaux IP Europeens Network Coordination Centre (RIPE NCC)");
 //! assert_eq!(asinfo.get(&400644).unwrap().name, "BGPKIT-LLC");
 //! assert_eq!(asinfo.get(&400644).unwrap().country, "US");
@@ -82,7 +82,7 @@
 //! use bgpkit_commons::BgpkitCommons;
 //!
 //! let mut bgpkit = BgpkitCommons::new();
-//! bgpkit.load_asinfo(true, false, false).unwrap();
+//! bgpkit.load_asinfo(true, false, false, false).unwrap();
 //! let are_siblings = bgpkit.asinfo_are_siblings(3333, 3334).unwrap();
 //! ```
 
@@ -277,7 +277,7 @@ impl BgpkitCommons {
     /// use bgpkit_commons::BgpkitCommons;
     ///
     /// let mut bgpkit = BgpkitCommons::new();
-    /// bgpkit.load_asinfo(false, false, false).unwrap();
+    /// bgpkit.load_asinfo(false, false, false, false).unwrap();
     /// let all_asinfo = bgpkit.asinfo_all().unwrap();
     /// ```
     pub fn asinfo_all(&self) -> Result<HashMap<u32, AsInfo>> {
@@ -306,7 +306,7 @@ impl BgpkitCommons {
     /// use bgpkit_commons::BgpkitCommons;
     ///
     /// let mut bgpkit = BgpkitCommons::new();
-    /// bgpkit.load_asinfo(false, false, false).unwrap();
+    /// bgpkit.load_asinfo(false, false, false, false).unwrap();
     /// let asinfo = bgpkit.asinfo_get(3333).unwrap();
     /// ```
     pub fn asinfo_get(&self, asn: u32) -> Result<Option<AsInfo>> {
@@ -335,7 +335,7 @@ impl BgpkitCommons {
     /// use bgpkit_commons::BgpkitCommons;
     ///
     /// let mut bgpkit = BgpkitCommons::new();
-    /// bgpkit.load_asinfo(true, false, false).unwrap();
+    /// bgpkit.load_asinfo(true, false, false, false).unwrap();
     /// let are_siblings = bgpkit.asinfo_are_siblings(3333, 3334).unwrap();
     /// ```
     ///
