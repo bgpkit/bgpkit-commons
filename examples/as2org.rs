@@ -5,7 +5,7 @@ fn main() {
     tracing_subscriber::fmt::init();
     info!("loading asn info data ...");
     let mut commons = bgpkit_commons::BgpkitCommons::new();
-    commons.load_asinfo(true, false, false).unwrap();
+    commons.load_asinfo(true, false, false, false).unwrap();
     commons.load_countries().unwrap();
     let as_info_map = commons.asinfo_all().unwrap();
 

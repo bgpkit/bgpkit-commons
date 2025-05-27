@@ -6,7 +6,7 @@ fn test_basic_info() {
 
     // Load AS information with default parameters.
     // no as2org, no population data, no as-hegemony
-    commons.load_asinfo(false, false, false).unwrap();
+    commons.load_asinfo(false, false, false, false).unwrap();
 
     // Assert that the AS name for AS number 3333 is correct.
     assert_eq!(
