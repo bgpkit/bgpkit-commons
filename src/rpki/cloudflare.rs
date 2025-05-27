@@ -102,10 +102,7 @@ impl RpkiTrie {
         for roa in data.roas {
             let prefix = roa.prefix.parse::<IpNet>()?;
             let max_length = roa.max_length;
-            let rir = match Rir::from_str(roa.ta.as_str()) {
-                Ok(rir) => Some(rir),
-                Err(_) => None,
-            };
+            let rir = Rir::from_str(roa.ta.as_str()).ok();
             let roa_entry = RoaEntry {
                 prefix,
                 asn: roa.asn,

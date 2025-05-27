@@ -53,15 +53,9 @@ impl RpkiTrie {
                 Err(_) => continue,
             };
             let not_before =
-                match NaiveDateTime::parse_from_str(fields.next().unwrap(), "%Y-%m-%d %H:%M:%S") {
-                    Ok(t) => Some(t),
-                    Err(_) => None,
-                };
+                NaiveDateTime::parse_from_str(fields.next().unwrap(), "%Y-%m-%d %H:%M:%S").ok();
             let not_after =
-                match NaiveDateTime::parse_from_str(fields.next().unwrap(), "%Y-%m-%d %H:%M:%S") {
-                    Ok(t) => Some(t),
-                    Err(_) => None,
-                };
+                NaiveDateTime::parse_from_str(fields.next().unwrap(), "%Y-%m-%d %H:%M:%S").ok();
             let roa_entry = RoaEntry {
                 prefix,
                 asn,
