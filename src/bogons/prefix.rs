@@ -1,5 +1,5 @@
 use crate::bogons::utils::{find_rfc_links, remove_footnotes, replace_commas_in_quotes};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::NaiveDate;
 use ipnet::IpNet;
 use serde::{Deserialize, Serialize};

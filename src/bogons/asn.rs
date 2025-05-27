@@ -1,5 +1,5 @@
 use crate::bogons::utils::{find_rfc_links, remove_footnotes, replace_commas_in_quotes};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 
 const IANA_ASN_SPECIAL_REGISTRY: &str = "https://www.iana.org/assignments/iana-as-numbers-special-registry/special-purpose-as-numbers.csv";

@@ -20,7 +20,7 @@
 //!
 //! This structure represents a collection of countries. It provides various methods to lookup and retrieve country information.
 use crate::BgpkitCommons;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

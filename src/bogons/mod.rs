@@ -19,9 +19,9 @@ mod asn;
 mod prefix;
 mod utils;
 
+use crate::BgpkitCommons;
 use crate::bogons::asn::load_bogon_asns;
 use crate::bogons::prefix::load_bogon_prefixes;
-use crate::BgpkitCommons;
 use anyhow::Result;
 pub use asn::BogonAsn;
 use ipnet::IpNet;

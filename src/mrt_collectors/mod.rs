@@ -7,7 +7,7 @@ Currently supported MRT collector projects:
 
 */
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize, Serializer};
 use std::cmp::Ordering;
@@ -18,7 +18,7 @@ mod riperis;
 mod routeviews;
 
 use crate::BgpkitCommons;
-pub use peers::{get_mrt_collector_peers, MrtCollectorPeer};
+pub use peers::{MrtCollectorPeer, get_mrt_collector_peers};
 pub use riperis::get_riperis_collectors;
 pub use routeviews::get_routeviews_collectors;
 

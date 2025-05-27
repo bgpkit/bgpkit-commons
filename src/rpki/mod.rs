@@ -3,13 +3,13 @@
 //! # Data sources
 //!
 //! - [Cloudflare RPKI JSON](https://rpki.cloudflare.com/rpki.json)
-//! - [RIPC NCC RPKI historical data dump](https://ftp.ripe.net/rpki/)
+//! - [RIPE NCC RPKI historical data dump](https://ftp.ripe.net/rpki/)
 //!     - AFRINIC: <https://ftp.ripe.net/rpki/afrinic.tal/>
 //!     - APNIC: <https://ftp.ripe.net/rpki/apnic.tal/>
 //!     - ARIN: <https://ftp.ripe.net/rpki/arin.tal/>
 //!     - LACNIC: <https://ftp.ripe.net/rpki/lacnic.tal/>
 //!     - RIPE NCC: <https://ftp.ripe.net/rpki/ripencc.tal/>
-//! - [rpkiviews historical data dump](https://rpkiviews.org/)
+//! - [PeeringDB](https://www.peeringdb.com/apidocs/)
 
 mod cloudflare;
 mod ripe_historical;
@@ -20,7 +20,7 @@ use ipnet::IpNet;
 use ipnet_trie::IpnetTrie;
 
 use crate::BgpkitCommons;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 pub use cloudflare::*;
 use std::fmt::Display;
 use std::str::FromStr;
