@@ -5,3 +5,6 @@
 
 # ignore output files from examples
 as2org.jsonl
+
+.env
+.env.*
