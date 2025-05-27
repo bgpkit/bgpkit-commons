@@ -40,15 +40,3 @@ impl Peeringdb {
         self.peeringdb_map.get(&asn)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_loading_peeringdb() {
-        let utils = Peeringdb::new().unwrap();
-        let data = utils.get_data(400644);
-        dbg!(data);
-    }
-}
