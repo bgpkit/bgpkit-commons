@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.8.0 - 2025-05-27
+
+### Highlights
+
+* add support for loading PeeringDB (https://www.peeringdb.com) data for `asinfo` module
+  * it uses the [`peeringdb-rs`][peeringdb-rs] module for loading the data
+  * users should supply a `PEERINGDB_API_KEY` when using this feature to avoid frequent rate limiting
+
+The PeeringDB data for the `asinfo` module is simplified to contain only the following fields:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PeeringdbData {
+    pub asn: u32,
+    pub name: Option<String>,
+    pub name_long: Option<String>,
+    pub aka: Option<String>,
+    pub irr_as_set: Option<String>,
+}
+```
+
+### Breaking change
+
+The `commons.load_asinfo()` now takes four arguments, adding a new `load_peeringdb` boolean argument at the end.
+
+For getting all other data, including organization and IX information, please check out the [`peeringdb-rs`][peeringdb-rs] crate.
+
+[peerindb-rs][https://github.com/bgpkit/peeringdb-rs]
+
 ## v0.7.4 - 2025-04-04
 
 ### Highlights
