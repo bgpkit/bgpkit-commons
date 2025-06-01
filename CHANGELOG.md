@@ -2,15 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.8.1 - 2025-06-01
+
+### Highlights
+
+* Added support for loading previously generated and cached AS information directly from BGPKIT cache files.
+    - Introduced `get_asinfo_map_cached()` function and `BgpkitCommons::load_asinfo_cached()` method for fast, offline
+      loading of AS info.
+    - Added examples in the documentation for using the cached AS info.
+* Improved AS name resolution:
+    - New `get_preferred_name()` method for `AsInfo` struct, prioritizing PeeringDB, as2org, then default name.
+* Enhanced PeeringDB integration:
+    - Added `website` field to PeeringDB data.
+* Dependency updates:
+    - Bumped `peeringdb-rs` to `0.1.1` and `oneio` to `0.18.1` with new features.
+    - Cleaned up unused dependencies.
+* Documentation improvements for new features and updated code examples.
+* Added and improved integration tests for cached AS info loading and preferred name resolution.
+* Removed outdated or redundant test code.
+
+### Other changes
+
+* Updated `README.md` and crate docs to reference version 0.8.
+* Minor internal refactoring and code cleanup.
+
 ## v0.8.0 - 2025-05-27
 
 ### Highlights
 
 * add support for loading PeeringDB (https://www.peeringdb.com) data for `asinfo` module
-  * it uses the [`peeringdb-rs`][peeringdb-rs] module for loading the data
-  * users should supply a `PEERINGDB_API_KEY` when using this feature to avoid frequent rate limiting
+    * it uses the [`peeringdb-rs`][peeringdb-rs] module for loading the data
+    * users should supply a `PEERINGDB_API_KEY` when using this feature to avoid frequent rate limiting
 
 The PeeringDB data for the `asinfo` module is simplified to contain only the following fields:
+
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PeeringdbData {
@@ -26,7 +51,8 @@ pub struct PeeringdbData {
 
 The `commons.load_asinfo()` now takes four arguments, adding a new `load_peeringdb` boolean argument at the end.
 
-For getting all other data, including organization and IX information, please check out the [`peeringdb-rs`][peeringdb-rs] crate.
+For getting all other data, including organization and IX information, please check out the [
+`peeringdb-rs`][peeringdb-rs] crate.
 
 [peerindb-rs][https://github.com/bgpkit/peeringdb-rs]
 
