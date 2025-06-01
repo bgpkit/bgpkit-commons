@@ -139,9 +139,16 @@ pub struct AsInfo {
 }
 
 impl AsInfo {
+    /// Returns the preferred name for the AS.
+    ///
+    /// The order of preference is:
+    /// 1. `peeringdb.name` if available
+    /// 2. `as2org.org_name` if available and not empty
+    /// 3. The default `name` field
+    /// ```
     pub fn get_preferred_name(&self) -> String {
         if let Some(peeringdb_data) = &self.peeringdb {
-            if let Some(name) = &peeringdb_data.name_long {
+            if let Some(name) = &peeringdb_data.name {
                 return name.clone();
             }
         }

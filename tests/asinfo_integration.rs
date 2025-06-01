@@ -57,6 +57,10 @@ fn test_loading_cached() {
     assert!(bgpkit_info.peeringdb.is_some());
     assert!(bgpkit_info.hegemony.is_some());
     assert!(bgpkit_info.as2org.is_some());
+
+    // make sure the preferred name is retrieved correctly.
+    assert_eq!(bgpkit_info.get_preferred_name(), "BGPKIT");
+
     assert_eq!(
         bgpkit_info.peeringdb.unwrap().irr_as_set.unwrap(),
         "AS400644:AS-BGPKIT"
