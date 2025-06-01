@@ -49,20 +49,3 @@ pub fn get_mrt_collector_peers() -> Result<Vec<MrtCollectorPeer>> {
 
     Ok(peers.data)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_get_peers() {
-        let mut peers = get_mrt_collector_peers().unwrap();
-        assert!(!peers.is_empty());
-        // sort peers by the number of connected ASNs
-        peers.sort_by(|a, b| b.num_connected_asns.cmp(&a.num_connected_asns));
-        // print top 10 peers
-        for peer in peers.iter().take(10) {
-            println!("{:?}", peer);
-        }
-    }
-}

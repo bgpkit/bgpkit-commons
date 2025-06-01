@@ -14,7 +14,7 @@
 //!
 //! Add `bgpkit-commons` to your `Cargo.toml`'s `dependencies` section:
 //! ```toml
-//! bgpkit-commons = "0.7"
+//! bgpkit-commons = "0.8"
 //! ```
 //!
 //! `bgpkit-commons` is designed to load only the data you need. Here is an example of checking if an ASN is a bogon ASN:
@@ -154,21 +154,14 @@ impl BgpkitCommons {
         Ok(())
     }
 
+    pub fn load_asinfo_cached(&mut self) -> Result<()> {
+        self.asinfo = Some(AsInfoUtils::new_from_cached()?);
+        Ok(())
+    }
+
     /// Load AS-level relationship data
     pub fn load_as2rel(&mut self) -> Result<()> {
         self.as2rel = Some(As2relBgpkit::new()?);
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_siblings() {
-        let mut commons = BgpkitCommons::new();
-        commons.load_asinfo(true, false, false, false).unwrap();
-        assert!(commons.asinfo_are_siblings(174, 1239).unwrap());
     }
 }

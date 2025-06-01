@@ -23,7 +23,7 @@ It provides the following modules:
 
 Add `bgpkit-commons` to your `Cargo.toml`'s `dependencies` section:
 ```toml
-bgpkit-commons = "0.7"
+bgpkit-commons = "0.8"
 ```
 
 `bgpkit-commons` is designed to load only the data you need. Here is an example of checking if an ASN is a bogon ASN:
