@@ -10,6 +10,7 @@ pub struct PeeringdbData {
     pub name_long: Option<String>,
     pub aka: Option<String>,
     pub irr_as_set: Option<String>,
+    pub website: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,6 +30,7 @@ impl Peeringdb {
                     name_long: net.name_long,
                     aka: net.aka,
                     irr_as_set: net.irr_as_set,
+                    website: net.website,
                 });
             };
         }

@@ -76,6 +76,31 @@
 //! assert_eq!(asinfo.get(&400644).unwrap().country, "US");
 //! ```
 //!
+//! Retrieve all previously generated and cached AS information:
+//! ```rust,no_run
+//! use std::collections::HashMap;
+//! use bgpkit_commons::asinfo::{get_asinfo_map_cached, AsInfo};
+//! let asinfo: HashMap<u32, AsInfo> = get_asinfo_map_cached().unwrap();
+//! assert_eq!(asinfo.get(&3333).unwrap().name, "RIPE-NCC-AS Reseaux IP Europeens Network Coordination Centre (RIPE NCC)");
+//! assert_eq!(asinfo.get(&400644).unwrap().name, "BGPKIT-LLC");
+//! assert_eq!(asinfo.get(&400644).unwrap().country, "US");
+//! ```
+//!
+//! Or with `BgpkitCommons` instance:
+//! ```rust,no_run
+//!
+//! use std::collections::HashMap;
+//! use bgpkit_commons::asinfo::AsInfo;
+//! use bgpkit_commons::BgpkitCommons;
+//!
+//! let mut commons = BgpkitCommons::new();
+//! commons.load_asinfo_cached().unwrap();
+//! let asinfo: HashMap<u32, AsInfo> = commons.asinfo_all().unwrap();
+//! assert_eq!(asinfo.get(&3333).unwrap().name, "RIPE-NCC-AS Reseaux IP Europeens Network Coordination Centre (RIPE NCC)");
+//! assert_eq!(asinfo.get(&400644).unwrap().name, "BGPKIT-LLC");
+//! assert_eq!(asinfo.get(&400644).unwrap().country, "US");
+//! ```
+//!
 //! Check if two ASNs are siblings:
 //!
 //! ```rust,no_run
@@ -113,6 +138,22 @@ pub struct AsInfo {
     pub peeringdb: Option<PeeringdbData>,
 }
 
+impl AsInfo {
+    pub fn get_preferred_name(&self) -> String {
+        if let Some(peeringdb_data) = &self.peeringdb {
+            if let Some(name) = &peeringdb_data.name_long {
+                return name.clone();
+            }
+        }
+        if let Some(as2org_info) = &self.as2org {
+            if !as2org_info.org_name.is_empty() {
+                return as2org_info.org_name.clone();
+            }
+        }
+        self.name.clone()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct As2orgInfo {
     pub name: String,
@@ -123,6 +164,7 @@ pub struct As2orgInfo {
 
 const RIPE_RIS_ASN_TXT_URL: &str = "https://ftp.ripe.net/ripe/asnames/asn.txt";
 const BGPKIT_ASN_TXT_MIRROR_URL: &str = "https://data.bgpkit.com/commons/asn.txt";
+const BGPKIT_ASNINFO_URL: &str = "https://data.bgpkit.com/commons/asinfo.jsonl";
 
 pub struct AsInfoUtils {
     pub asinfo_map: HashMap<u32, AsInfo>,
@@ -157,6 +199,19 @@ impl AsInfoUtils {
         })
     }
 
+    pub fn new_from_cached() -> Result<Self> {
+        let asinfo_map = get_asinfo_map_cached()?;
+        let sibling_orgs = Some(SiblingOrgsUtils::new()?);
+        Ok(AsInfoUtils {
+            asinfo_map,
+            sibling_orgs,
+            load_as2org: true,
+            load_population: true,
+            load_hegemony: true,
+            load_peeringdb: true,
+        })
+    }
+
     pub fn reload(&mut self) -> Result<()> {
         self.asinfo_map = get_asinfo_map(
             self.load_as2org,
@@ -170,6 +225,20 @@ impl AsInfoUtils {
     pub fn get(&self, asn: u32) -> Option<&AsInfo> {
         self.asinfo_map.get(&asn)
     }
+}
+
+pub fn get_asinfo_map_cached() -> Result<HashMap<u32, AsInfo>> {
+    info!("loading asinfo from previously generated BGPKIT cache file...");
+    let mut asnames_map = HashMap::new();
+    for line in oneio::read_lines(BGPKIT_ASNINFO_URL)? {
+        let line = line?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        let asinfo: AsInfo = serde_json::from_str(&line)?;
+        asnames_map.insert(asinfo.asn, asinfo);
+    }
+    Ok(asnames_map)
 }
 
 pub fn get_asinfo_map(
