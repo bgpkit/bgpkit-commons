@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.8.2 - 2025-06-06
+
+### Hot fix
+
+* Update `oneio` to `0.18.2` to fix potential build issue related to `rustls_sys` crate
+
 ## v0.8.1 - 2025-06-01
 
 ### Highlights
