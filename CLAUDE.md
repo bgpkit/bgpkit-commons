@@ -97,6 +97,14 @@ cargo run --no-default-features --features "rpki" --example list_aspas
 ### Code Quality
 - Always run `cargo fmt` after finishing each round of code editing
 - Run clippy checks before committing changes
+- **IMPORTANT**: Before committing any changes, run all relevant tests and checks from `.github/workflows/rust.yaml`:
+  - `cargo fmt --check` - Check code formatting
+  - `cargo build --no-default-features` - Build with no features
+  - `cargo build` - Build with default features
+  - `cargo test` - Run all tests
+  - `cargo clippy --all-features -- -D warnings` - Run clippy on all features
+  - `cargo clippy --no-default-features` - Run clippy with no features
+  - Fix any issues before committing
 
 ### Documentation
 - Update CHANGELOG.md when implementing fixes or features
