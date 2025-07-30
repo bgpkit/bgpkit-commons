@@ -1,4 +1,4 @@
-//! epki module maintains common functions for accessing RPKI information
+//! rpki module maintains common functions for accessing RPKI information
 //!
 //! This module supports multiple Route Origin Authorizations (ROAs) for the same prefix,
 //! which is common in real-world RPKI deployments where different ASNs may be authorized
