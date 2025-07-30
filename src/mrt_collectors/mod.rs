@@ -98,14 +98,18 @@ pub fn get_all_collectors() -> Result<Vec<MrtCollector>> {
 impl BgpkitCommons {
     pub fn mrt_collectors_all(&self) -> Result<Vec<MrtCollector>> {
         if self.mrt_collectors.is_none() {
-            return Err(anyhow!("mrt_collectors is not loaded"));
+            return Err(anyhow!(
+                "MRT collectors data not loaded. Call load_mrt_collectors() first."
+            ));
         }
         Ok(self.mrt_collectors.clone().unwrap())
     }
 
     pub fn mrt_collectors_by_name(&self, name: &str) -> Result<Option<MrtCollector>> {
         if self.mrt_collectors.is_none() {
-            return Err(anyhow!("mrt_collectors is not loaded"));
+            return Err(anyhow!(
+                "MRT collectors data not loaded. Call load_mrt_collectors() first."
+            ));
         }
         Ok(self
             .mrt_collectors
@@ -116,16 +120,19 @@ impl BgpkitCommons {
             .cloned())
     }
 
-    pub fn mrt_collectors_by_country(&self, country: &str) -> Option<Vec<MrtCollector>> {
-        self.mrt_collectors
-            .as_ref()
-            .map(|c| c.iter().filter(|x| x.country == country).cloned().collect())
+    pub fn mrt_collectors_by_country(&self, country: &str) -> Result<Vec<MrtCollector>> {
+        match &self.mrt_collectors {
+            Some(c) => Ok(c.iter().filter(|x| x.country == country).cloned().collect()),
+            None => Err(anyhow::anyhow!(
+                "MRT collectors data not loaded. Call load_mrt_collectors() first."
+            )),
+        }
     }
 
     pub fn mrt_collector_peers_all(&self) -> Result<Vec<MrtCollectorPeer>> {
         if self.mrt_collector_peers.is_none() {
             return Err(anyhow!(
-                "mrt_collector_peers is not loaded, call commons.load_mrt_collector_peers() first"
+                "MRT collector peers data not loaded. Call load_mrt_collector_peers() first."
             ));
         }
         Ok(self.mrt_collector_peers.clone().unwrap())
@@ -133,7 +140,9 @@ impl BgpkitCommons {
 
     pub fn mrt_collector_peers_full_feed(&self) -> Result<Vec<MrtCollectorPeer>> {
         if self.mrt_collector_peers.is_none() {
-            return Err(anyhow!("mrt_collector_peers is not loaded"));
+            return Err(anyhow!(
+                "MRT collector peers data not loaded. Call load_mrt_collector_peers() first."
+            ));
         }
         // Filter out mrt_collectors that have full feed
         Ok(self

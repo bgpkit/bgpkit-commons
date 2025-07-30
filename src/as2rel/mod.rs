@@ -5,7 +5,7 @@
 //! * [as2rel-v4-latest.json.bz2](https://data.bgpkit.com/as2rel/as2rel-v4-latest.json.bz2): latest IPv4 relationship
 //! * [as2rel-v6-latest.json.bz2](https://data.bgpkit.com/as2rel/as2rel-v6-latest.json.bz2): latest IPv6 relationship
 
-use crate::BgpkitCommons;
+use crate::{BgpkitCommons, LazyLoadable};
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -182,6 +182,25 @@ impl As2relBgpkit {
     }
 }
 
+impl LazyLoadable for As2relBgpkit {
+    fn reload(&mut self) -> anyhow::Result<()> {
+        *self = As2relBgpkit::new()?;
+        Ok(())
+    }
+
+    fn is_loaded(&self) -> bool {
+        !self.v4_rels_map.is_empty() || !self.v6_rels_map.is_empty()
+    }
+
+    fn loading_status(&self) -> &'static str {
+        if self.is_loaded() {
+            "AS2Rel data loaded"
+        } else {
+            "AS2Rel data not loaded"
+        }
+    }
+}
+
 fn parse_as2rel_data(url: &str) -> Result<Vec<As2relEntry>> {
     info!("loading AS2REL data from {}", url);
     let data: Vec<As2relEntry> = oneio::read_json_struct(url)?;
@@ -195,7 +214,7 @@ impl BgpkitCommons {
         asn2: u32,
     ) -> Result<(Vec<As2relBgpkitData>, Vec<As2relBgpkitData>)> {
         if self.as2rel.is_none() {
-            return Err(anyhow!("as2rel is not loaded"));
+            return Err(anyhow!("AS2Rel data not loaded. Call load_as2rel() first."));
         }
 
         Ok(self.as2rel.as_ref().unwrap().lookup_pair(asn1, asn2))

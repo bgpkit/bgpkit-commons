@@ -116,7 +116,7 @@ mod peeringdb;
 mod population;
 mod sibling_orgs;
 
-use crate::BgpkitCommons;
+use crate::{BgpkitCommons, LazyLoadable};
 use anyhow::{Result, anyhow};
 use peeringdb::PeeringdbData;
 use serde::{Deserialize, Serialize};
@@ -231,6 +231,24 @@ impl AsInfoUtils {
 
     pub fn get(&self, asn: u32) -> Option<&AsInfo> {
         self.asinfo_map.get(&asn)
+    }
+}
+
+impl LazyLoadable for AsInfoUtils {
+    fn reload(&mut self) -> anyhow::Result<()> {
+        self.reload()
+    }
+
+    fn is_loaded(&self) -> bool {
+        !self.asinfo_map.is_empty()
+    }
+
+    fn loading_status(&self) -> &'static str {
+        if self.is_loaded() {
+            "ASInfo data loaded"
+        } else {
+            "ASInfo data not loaded"
+        }
     }
 }
 
@@ -358,7 +376,7 @@ impl BgpkitCommons {
     /// ```
     pub fn asinfo_all(&self) -> Result<HashMap<u32, AsInfo>> {
         if self.asinfo.is_none() {
-            return Err(anyhow!("asinfo is not loaded"));
+            return Err(anyhow!("ASInfo data not loaded. Call load_asinfo() first."));
         }
 
         Ok(self.asinfo.as_ref().unwrap().asinfo_map.clone())
@@ -387,7 +405,7 @@ impl BgpkitCommons {
     /// ```
     pub fn asinfo_get(&self, asn: u32) -> Result<Option<AsInfo>> {
         if self.asinfo.is_none() {
-            return Err(anyhow!("asinfo is not loaded"));
+            return Err(anyhow!("ASInfo data not loaded. Call load_asinfo() first."));
         }
 
         Ok(self.asinfo.as_ref().unwrap().get(asn).cloned())
@@ -420,10 +438,12 @@ impl BgpkitCommons {
     /// This function requires the asinfo to be loaded with as2org data.
     pub fn asinfo_are_siblings(&self, asn1: u32, asn2: u32) -> Result<bool> {
         if self.asinfo.is_none() {
-            return Err(anyhow!("asinfo is not loaded"));
+            return Err(anyhow!("ASInfo data not loaded. Call load_asinfo() first."));
         }
         if !self.asinfo.as_ref().unwrap().load_as2org {
-            return Err(anyhow!("asinfo is not loaded with as2org data"));
+            return Err(anyhow!(
+                "ASInfo data not loaded with as2org data. Call load_asinfo() with as2org=true first."
+            ));
         }
 
         let info_1_opt = self.asinfo_get(asn1)?;

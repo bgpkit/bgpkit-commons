@@ -19,9 +19,9 @@ mod asn;
 mod prefix;
 mod utils;
 
-use crate::BgpkitCommons;
 use crate::bogons::asn::load_bogon_asns;
 use crate::bogons::prefix::load_bogon_prefixes;
+use crate::{BgpkitCommons, LazyLoadable};
 use anyhow::Result;
 pub use asn::BogonAsn;
 use ipnet::IpNet;
@@ -66,27 +66,73 @@ impl Bogons {
     }
 }
 
+impl LazyLoadable for Bogons {
+    fn reload(&mut self) -> anyhow::Result<()> {
+        *self = Bogons::new()?;
+        Ok(())
+    }
+
+    fn is_loaded(&self) -> bool {
+        !self.prefixes.is_empty() && !self.asns.is_empty()
+    }
+
+    fn loading_status(&self) -> &'static str {
+        if self.is_loaded() {
+            "Bogons data loaded"
+        } else {
+            "Bogons data not loaded"
+        }
+    }
+}
+
 impl BgpkitCommons {
-    pub fn bogons_match(&self, s: &str) -> Option<bool> {
-        self.bogons.as_ref().map(|b| b.matches_str(s))
+    pub fn bogons_match(&self, s: &str) -> Result<bool> {
+        match &self.bogons {
+            Some(b) => Ok(b.matches_str(s)),
+            None => Err(anyhow::anyhow!(
+                "Bogons data not loaded. Call load_bogons() first."
+            )),
+        }
     }
 
-    pub fn bogons_match_prefix(&self, prefix: &str) -> Option<bool> {
-        let prefix = prefix.parse().ok()?;
-        self.bogons.as_ref().map(|b| b.is_bogon_prefix(&prefix))
+    pub fn bogons_match_prefix(&self, prefix: &str) -> Result<bool> {
+        let prefix = prefix
+            .parse()
+            .map_err(|e| anyhow::anyhow!("Invalid prefix format '{}': {}", prefix, e))?;
+        match &self.bogons {
+            Some(b) => Ok(b.is_bogon_prefix(&prefix)),
+            None => Err(anyhow::anyhow!(
+                "Bogons data not loaded. Call load_bogons() first."
+            )),
+        }
     }
 
-    pub fn bogons_match_asn(&self, asn: u32) -> Option<bool> {
-        self.bogons.as_ref().map(|b| b.is_bogon_asn(asn))
+    pub fn bogons_match_asn(&self, asn: u32) -> Result<bool> {
+        match &self.bogons {
+            Some(b) => Ok(b.is_bogon_asn(asn)),
+            None => Err(anyhow::anyhow!(
+                "Bogons data not loaded. Call load_bogons() first."
+            )),
+        }
     }
 
     /// Get all bogon prefixes.
-    pub fn get_bogon_prefixes(&self) -> Option<Vec<BogonPrefix>> {
-        self.bogons.as_ref().map(|b| b.prefixes.clone())
+    pub fn get_bogon_prefixes(&self) -> Result<Vec<BogonPrefix>> {
+        match &self.bogons {
+            Some(b) => Ok(b.prefixes.clone()),
+            None => Err(anyhow::anyhow!(
+                "Bogons data not loaded. Call load_bogons() first."
+            )),
+        }
     }
 
     /// Get all bogon ASNs.
-    pub fn get_bogon_asns(&self) -> Option<Vec<BogonAsn>> {
-        self.bogons.as_ref().map(|b| b.asns.clone())
+    pub fn get_bogon_asns(&self) -> Result<Vec<BogonAsn>> {
+        match &self.bogons {
+            Some(b) => Ok(b.asns.clone()),
+            None => Err(anyhow::anyhow!(
+                "Bogons data not loaded. Call load_bogons() first."
+            )),
+        }
     }
 }
