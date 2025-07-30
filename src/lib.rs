@@ -44,7 +44,6 @@
     html_favicon_url = "https://raw.githubusercontent.com/bgpkit/assets/main/logos/favicon.ico"
 )]
 
-
 #[cfg(feature = "as2rel")]
 pub mod as2rel;
 #[cfg(feature = "asinfo")]

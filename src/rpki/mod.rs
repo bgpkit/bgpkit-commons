@@ -1,4 +1,4 @@
-//! rpki module maintains common functions for accessing RPKI information
+//! epki module maintains common functions for accessing RPKI information
 //!
 //! This module supports multiple Route Origin Authorizations (ROAs) for the same prefix,
 //! which is common in real-world RPKI deployments where different ASNs may be authorized
@@ -242,10 +242,10 @@ mod tests {
     #[test]
     fn test_multiple_roas_same_prefix() {
         let mut trie = RpkiTrie::new(None);
-        
+
         // Create a test prefix
         let prefix: IpNet = "10.0.0.0/8".parse().unwrap();
-        
+
         // Create multiple ROAs for the same prefix with different ASNs
         let roa1 = RoaEntry {
             prefix,
@@ -255,7 +255,7 @@ mod tests {
             not_before: None,
             not_after: None,
         };
-        
+
         let roa2 = RoaEntry {
             prefix,
             asn: 64497,
@@ -264,7 +264,7 @@ mod tests {
             not_before: None,
             not_after: None,
         };
-        
+
         // Create a duplicate ROA (same prefix, asn, max_length as roa1)
         let roa1_duplicate = RoaEntry {
             prefix,
@@ -274,21 +274,21 @@ mod tests {
             not_before: None,
             not_after: None,
         };
-        
+
         // Insert ROAs
         assert!(trie.insert_roa(roa1)); // Should return true for new prefix
         assert!(!trie.insert_roa(roa2)); // Should return false for existing prefix
         assert!(!trie.insert_roa(roa1_duplicate)); // Should return false and not add duplicate
-        
+
         // Lookup should return only 2 ROAs (duplicate should be ignored)
         let matches = trie.lookup_by_prefix(&prefix);
         assert_eq!(matches.len(), 2);
-        
+
         // Check that both ASNs are present
         let asns: std::collections::HashSet<u32> = matches.iter().map(|r| r.asn).collect();
         assert!(asns.contains(&64496));
         assert!(asns.contains(&64497));
-        
+
         // Test validation - should be valid for both ASNs
         assert_eq!(trie.validate(&prefix, 64496), RpkiValidation::Valid);
         assert_eq!(trie.validate(&prefix, 64497), RpkiValidation::Valid);
