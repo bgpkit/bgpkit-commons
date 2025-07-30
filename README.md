@@ -74,7 +74,7 @@ let mut commons = BgpkitCommons::new();
 commons.load_bogons().unwrap();
 
 // Use the data
-if let Some(is_bogon) = commons.bogons_match("23456") {
+if let Ok(is_bogon) = commons.bogons_match("23456") {
     println!("ASN 23456 is a bogon: {}", is_bogon);
 }
 ```

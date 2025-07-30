@@ -65,7 +65,7 @@
 //! commons.load_bogons().unwrap();
 //!
 //! // Use the data
-//! if let Some(is_bogon) = commons.bogons_match("23456") {
+//! if let Ok(is_bogon) = commons.bogons_match("23456") {
 //!     println!("ASN 23456 is a bogon: {}", is_bogon);
 //! }
 //! ```
@@ -220,6 +220,7 @@ impl BgpkitCommons {
 
     /// Get loading status for all available modules
     pub fn loading_status(&self) -> Vec<(&'static str, &'static str)> {
+        #[allow(unused_mut)] // mut needed when any features are enabled
         let mut status = Vec::new();
 
         #[cfg(feature = "countries")]
