@@ -6,8 +6,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Building
 - `cargo build` - Build the library with default features
-- `cargo build --features native-tls` - Build with native-tls backend
-- `cargo build --features rustls` - Build with rustls backend (default)
 - `cargo build --all-features` - Build with all features enabled
 
 ### Testing  
