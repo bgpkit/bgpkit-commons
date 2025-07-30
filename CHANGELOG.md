@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased changes
 
+## v0.9.0 - 2025-01-30
+
+### Breaking changes
+
+* **Error handling**: All access methods now return `Result<T>` instead of mixed `Option<T>`/`Result<T>` patterns
+* **Error types**: Changed from `anyhow::Error` to structured `BgpkitCommonsError` enum with specific error variants
+* **Dependencies**: Removed `anyhow` dependency completely - now using only `thiserror 2.0` for error handling
+
 ### Feature flags
 
 * Added individual feature flags for each module (`asinfo`, `as2rel`, `bogons`, `countries`, `mrt_collectors`, `rpki`)
