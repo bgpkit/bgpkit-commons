@@ -170,7 +170,7 @@ impl RpkiTrie {
             if p.contains(prefix) {
                 for roa in roas {
                     if roa.max_length >= prefix.prefix_len() {
-                        all_matches.push(*roa);
+                        all_matches.push(roa.clone());
                     }
                 }
             }
