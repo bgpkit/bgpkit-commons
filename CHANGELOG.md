@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased changes
+
+### Feature flags
+
+* Added individual feature flags for each module (`asinfo`, `as2rel`, `bogons`, `countries`, `mrt_collectors`, `rpki`)
+* Made all dependencies optional except `anyhow` - dependencies are only compiled when their respective features are enabled
+* Added `all` convenience feature that enables all modules (set as default for backwards compatibility)
+* Removed `native-tls` and `rustls` feature flags - oneio now uses rustls by default
+* Updated GitHub Actions workflow to test all feature combinations
+
+### Code improvements
+
+* Cleaned up `lib.rs` by using full paths instead of feature-gated imports
+* Enhanced CI testing with comprehensive feature combination validation
+
 ## v0.8.2 - 2025-06-06
 
 ### Hot fix

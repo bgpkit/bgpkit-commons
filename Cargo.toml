@@ -15,23 +15,51 @@ keywords = ["bgp", "bgpkit"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-as2org-rs = "1.0.0"
-peeringdb-rs = "0.1.1"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1"
-oneio = { version = "0.18.2", default-features = false, features = ["lib-core", "json"] }
-regex = "1"
 anyhow = "1.0"
-chrono = { version = "0.4", features = ["serde"] }
-ipnet-trie = "0.2.0"
-ipnet = { version = "2.9", features = ["serde"] }
-tracing = "0.1"
+
+as2org-rs = { version = "1.0.0", optional = true }
+chrono = { version = "0.4", features = ["serde"], optional = true }
+ipnet = { version = "2.9", features = ["serde"], optional = true }
+ipnet-trie = { version = "0.2.0", optional = true }
+oneio = { version = "0.18.2", optional = true }
+peeringdb-rs = { version = "0.1.1", optional = true }
+regex = { version = "1", optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+tracing = { version = "0.1", optional = true }
 
 [dev-dependencies]
 tracing-subscriber = "0.3"
+serde_json = "1"
+oneio = { version = "0.18.2" }
 
 
 [features]
-default = ["rustls"]
-native-tls = ["oneio/native-tls"]
-rustls = ["oneio/rustls"]
+default = ["all"]
+
+# Module features
+asinfo = ["as2org-rs", "peeringdb-rs", "oneio", "serde", "serde_json", "tracing", "chrono"]
+as2rel = ["oneio", "serde", "serde_json", "tracing"]
+bogons = ["oneio", "serde", "ipnet", "regex", "chrono"]
+countries = ["oneio", "serde"]
+mrt_collectors = ["oneio", "serde", "chrono"]
+rpki = ["oneio", "serde", "ipnet", "ipnet-trie", "chrono", "tracing"]
+
+# Convenience feature to enable all modules
+all = ["asinfo", "as2rel", "bogons", "countries", "mrt_collectors", "rpki"]
+
+# Example configurations - specify required features for each example
+[[example]]
+name = "as2org"
+required-features = ["asinfo", "countries"]
+
+[[example]]
+name = "collectors"
+required-features = ["mrt_collectors"]
+
+[[example]]
+name = "list_aspas"
+required-features = ["rpki"]
+
+[lints.clippy]
+uninlined_format_args = "allow"

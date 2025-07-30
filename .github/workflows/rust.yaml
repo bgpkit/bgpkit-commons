@@ -17,23 +17,50 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      # Test comprehensive feature combinations to ensure optional dependencies work correctly
+      # Each module has its own feature flag that gates both the module and its dependencies
+      
       - name: Run cargo-readme check
         run: cargo install cargo-readme && cargo readme > TMP_README.md && diff -b TMP_README.md README.md
 
-      - name: Build default
+      - name: Build with no features
+        run: cargo build --no-default-features
+
+      - name: Build with default features (all modules)
         run: cargo build
 
-      - name: Build lib with native-tls
-        run: cargo build --features native-tls && cargo tree --no-default-features --features native-tls | grep -q rustls && {exit 1} || echo "success"
+      - name: Build individual features
+        run: |
+          cargo build --no-default-features --features asinfo
+          cargo build --no-default-features --features as2rel
+          cargo build --no-default-features --features bogons
+          cargo build --no-default-features --features countries
+          cargo build --no-default-features --features mrt_collectors
+          cargo build --no-default-features --features rpki
 
-      - name: Build lib with rustls
-        run: cargo build --features rustls && cargo tree --no-default-features --features rustls | grep -q native-tls && {exit 1} || echo "success"
+      - name: Build feature combinations
+        run: |
+          cargo build --no-default-features --features "bogons,countries"
+          cargo build --no-default-features --features "asinfo,rpki"
+          cargo build --no-default-features --features "mrt_collectors,countries"
+
+      - name: Build with all features explicitly
+        run: cargo build --features all
 
       - name: Run format check
         run: cargo fmt --check
 
-      - name: Run tests
+      - name: Run tests with default features
         run: cargo test
 
-      - name: Run clippy
+      - name: Run clippy on all features
         run: cargo clippy --all-features -- -D warnings
+
+      - name: Run clippy on no-default-features
+        run: cargo clippy --no-default-features
+
+      - name: Run clippy on individual features
+        run: |
+          cargo clippy --no-default-features --features asinfo -- -D warnings
+          cargo clippy --no-default-features --features bogons -- -D warnings
+          cargo clippy --no-default-features --features countries -- -D warnings
