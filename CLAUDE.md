@@ -72,6 +72,17 @@ cargo build --no-default-features --features "asinfo,countries"
 cargo build --features all
 ```
 
+#### Examples
+Each example has required features specified:
+- `as2org`: requires `asinfo` and `countries` features
+- `collectors`: requires `mrt_collectors` feature  
+- `list_aspas`: requires `rpki` feature
+
+Examples will automatically use the correct features when built with default settings, or you can build them with minimal features:
+```bash
+cargo run --no-default-features --features "rpki" --example list_aspas
+```
+
 ### Key Implementation Details
 - All data loading methods return `Result<()>` and can fail if external APIs are unavailable
 - The `reload()` method refreshes all currently loaded data sources
