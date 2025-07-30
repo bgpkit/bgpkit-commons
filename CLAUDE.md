@@ -114,3 +114,16 @@ cargo run --no-default-features --features "rpki" --example list_aspas
 ### Git Operations
 - Do not prompt for git operations unless explicitly requested by the user
 - Let the user initiate commits and other git actions when they're ready
+
+### Release Process
+When preparing a release, follow these steps in order:
+1. **Update CHANGELOG.md**: 
+   - Move all "Unreleased changes" to a new version section with the release version number and date
+   - Add any missing changes that were implemented but not documented
+   - Follow the existing format: `## v[VERSION] - YYYY-MM-DD`
+2. **Update Cargo.toml**:
+   - Update the `version` field to the new version number
+   - Follow semantic versioning (major.minor.patch)
+3. **Create and push git tag**:
+   - Create a new git tag with the version number: `git tag v[VERSION]`
+   - Push the tag to remote: `git push origin v[VERSION]`
