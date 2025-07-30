@@ -91,3 +91,17 @@ cargo run --no-default-features --features "rpki" --example list_aspas
 - Unit tests are embedded in module files
 - Integration tests in `tests/` directory test full workflows
 - Examples in `examples/` directory demonstrate usage patterns
+
+## Development Workflow Preferences
+
+### Code Quality
+- Always run `cargo fmt` after finishing each round of code editing
+- Run clippy checks before committing changes
+
+### Documentation
+- Update CHANGELOG.md when implementing fixes or features
+- Add changes to the "Unreleased changes" section with appropriate subsections (Feature flags, Bug fixes, Code improvements, etc.)
+
+### Git Operations
+- Do not prompt for git operations unless explicitly requested by the user
+- Let the user initiate commits and other git actions when they're ready

@@ -12,6 +12,12 @@ All notable changes to this project will be documented in this file.
 * Removed `native-tls` and `rustls` feature flags - oneio now uses rustls by default
 * Updated GitHub Actions workflow to test all feature combinations
 
+### Bug fixes
+
+* Fixed RPKI module to properly handle multiple ROAs for the same prefix
+* Added duplicate prevention for ROAs based on (prefix, asn, max_length) triplet
+* Enhanced RPKI module documentation with multiple ROAs support details
+
 ### Code improvements
 
 * Cleaned up `lib.rs` by using full paths instead of feature-gated imports
