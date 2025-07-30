@@ -22,6 +22,9 @@ All notable changes to this project will be documented in this file.
 
 * Cleaned up `lib.rs` by using full paths instead of feature-gated imports
 * Enhanced CI testing with comprehensive feature combination validation
+* Significantly improved lib.rs documentation with comprehensive usage examples
+* Added feature flag documentation and minimal build examples
+* Enhanced module descriptions with clear feature requirements
 
 ## v0.8.2 - 2025-06-06
 
