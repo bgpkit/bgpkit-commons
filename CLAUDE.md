@@ -51,7 +51,7 @@ The library follows a lazy-loading pattern:
 - `rpki`: RPKI validation data (historical from RIPE, real-time from Cloudflare)
 
 #### Dependency Management
-- All dependencies except `anyhow` are optional and only included when their respective features are enabled
+- All dependencies are optional and only included when their respective features are enabled (except `thiserror` for error handling)
 - This allows for minimal builds with only the required functionality
 
 #### Convenience Features

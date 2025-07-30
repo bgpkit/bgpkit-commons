@@ -30,8 +30,8 @@ use chrono::{NaiveDate, NaiveDateTime};
 use ipnet::IpNet;
 use ipnet_trie::IpnetTrie;
 
-use crate::{BgpkitCommons, LazyLoadable};
-use anyhow::{Result, anyhow};
+use crate::errors::{load_methods, modules};
+use crate::{BgpkitCommons, BgpkitCommonsError, LazyLoadable, Result};
 pub use cloudflare::*;
 use std::fmt::Display;
 use std::str::FromStr;
@@ -170,7 +170,7 @@ impl RpkiTrie {
             if p.contains(prefix) {
                 for roa in roas {
                     if roa.max_length >= prefix.prefix_len() {
-                        all_matches.push(roa.clone());
+                        all_matches.push(*roa);
                     }
                 }
             }
@@ -216,7 +216,7 @@ impl RpkiTrie {
 }
 
 impl LazyLoadable for RpkiTrie {
-    fn reload(&mut self) -> anyhow::Result<()> {
+    fn reload(&mut self) -> Result<()> {
         self.reload()
     }
 
@@ -236,7 +236,10 @@ impl LazyLoadable for RpkiTrie {
 impl BgpkitCommons {
     pub fn rpki_lookup_by_prefix(&self, prefix: &str) -> Result<Vec<RoaEntry>> {
         if self.rpki_trie.is_none() {
-            return Err(anyhow!("RPKI data not loaded. Call load_rpki() first."));
+            return Err(BgpkitCommonsError::module_not_loaded(
+                modules::RPKI,
+                load_methods::LOAD_RPKI,
+            ));
         }
 
         let prefix = prefix.parse()?;
@@ -246,7 +249,10 @@ impl BgpkitCommons {
 
     pub fn rpki_validate(&self, asn: u32, prefix: &str) -> Result<RpkiValidation> {
         if self.rpki_trie.is_none() {
-            return Err(anyhow!("RPKI data not loaded. Call load_rpki() first."));
+            return Err(BgpkitCommonsError::module_not_loaded(
+                modules::RPKI,
+                load_methods::LOAD_RPKI,
+            ));
         }
         let prefix = prefix.parse()?;
         Ok(self.rpki_trie.as_ref().unwrap().validate(&prefix, asn))

@@ -2,8 +2,8 @@
 //!
 //! API source: <https://api.routeviews.org/collector/?format=json>
 
+use crate::Result;
 use crate::mrt_collectors::{MrtCollector, MrtCollectorProject, ToMrtCollector};
-use anyhow::Result;
 use chrono::DateTime;
 use serde::Deserialize;
 

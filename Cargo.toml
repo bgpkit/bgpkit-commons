@@ -15,7 +15,7 @@ keywords = ["bgp", "bgpkit"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0"
+thiserror = "2.0"
 
 as2org-rs = { version = "1.0.0", optional = true }
 chrono = { version = "0.4", features = ["serde"], optional = true }

@@ -1,6 +1,6 @@
 //! Load current RPKI information from Cloudflare RPKI portal.
 
-use anyhow::Result;
+use crate::Result;
 use ipnet::IpNet;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;

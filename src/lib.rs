@@ -144,10 +144,15 @@ pub mod mrt_collectors;
 #[cfg(feature = "rpki")]
 pub mod rpki;
 
+pub mod errors;
+
+// Re-export error types for convenience
+pub use errors::{BgpkitCommonsError, Result};
+
 /// Trait for modules that support lazy loading and reloading of data
 pub trait LazyLoadable {
     /// Reload the module's data from its external sources
-    fn reload(&mut self) -> anyhow::Result<()>;
+    fn reload(&mut self) -> Result<()>;
 
     /// Check if the module's data is currently loaded
     fn is_loaded(&self) -> bool;
@@ -180,7 +185,7 @@ impl BgpkitCommons {
     }
 
     /// Reload all data sources that are already loaded
-    pub fn reload(&mut self) -> anyhow::Result<()> {
+    pub fn reload(&mut self) -> Result<()> {
         #[cfg(feature = "countries")]
         if self.countries.is_some() {
             self.load_countries()?;
@@ -272,14 +277,14 @@ impl BgpkitCommons {
 
     /// Load countries data
     #[cfg(feature = "countries")]
-    pub fn load_countries(&mut self) -> anyhow::Result<()> {
+    pub fn load_countries(&mut self) -> Result<()> {
         self.countries = Some(crate::countries::Countries::new()?);
         Ok(())
     }
 
     /// Load RPKI data
     #[cfg(feature = "rpki")]
-    pub fn load_rpki(&mut self, date_opt: Option<chrono::NaiveDate>) -> anyhow::Result<()> {
+    pub fn load_rpki(&mut self, date_opt: Option<chrono::NaiveDate>) -> Result<()> {
         if let Some(date) = date_opt {
             self.rpki_trie = Some(crate::rpki::RpkiTrie::from_ripe_historical(date)?);
         } else {
@@ -290,21 +295,21 @@ impl BgpkitCommons {
 
     /// Load MRT mrt_collectors data
     #[cfg(feature = "mrt_collectors")]
-    pub fn load_mrt_collectors(&mut self) -> anyhow::Result<()> {
+    pub fn load_mrt_collectors(&mut self) -> Result<()> {
         self.mrt_collectors = Some(crate::mrt_collectors::get_all_collectors()?);
         Ok(())
     }
 
     /// Load MRT mrt_collectors data
     #[cfg(feature = "mrt_collectors")]
-    pub fn load_mrt_collector_peers(&mut self) -> anyhow::Result<()> {
+    pub fn load_mrt_collector_peers(&mut self) -> Result<()> {
         self.mrt_collector_peers = Some(crate::mrt_collectors::get_mrt_collector_peers()?);
         Ok(())
     }
 
     /// Load bogons data
     #[cfg(feature = "bogons")]
-    pub fn load_bogons(&mut self) -> anyhow::Result<()> {
+    pub fn load_bogons(&mut self) -> Result<()> {
         self.bogons = Some(crate::bogons::Bogons::new()?);
         Ok(())
     }
@@ -317,7 +322,7 @@ impl BgpkitCommons {
         load_population: bool,
         load_hegemony: bool,
         load_peeringdb: bool,
-    ) -> anyhow::Result<()> {
+    ) -> Result<()> {
         self.asinfo = Some(crate::asinfo::AsInfoUtils::new(
             load_as2org,
             load_population,
@@ -328,14 +333,14 @@ impl BgpkitCommons {
     }
 
     #[cfg(feature = "asinfo")]
-    pub fn load_asinfo_cached(&mut self) -> anyhow::Result<()> {
+    pub fn load_asinfo_cached(&mut self) -> Result<()> {
         self.asinfo = Some(crate::asinfo::AsInfoUtils::new_from_cached()?);
         Ok(())
     }
 
     /// Load AS-level relationship data
     #[cfg(feature = "as2rel")]
-    pub fn load_as2rel(&mut self) -> anyhow::Result<()> {
+    pub fn load_as2rel(&mut self) -> Result<()> {
         self.as2rel = Some(crate::as2rel::As2relBgpkit::new()?);
         Ok(())
     }
