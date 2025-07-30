@@ -1,5 +1,6 @@
 use crate::bogons::utils::{find_rfc_links, remove_footnotes, replace_commas_in_quotes};
-use anyhow::{Result, anyhow};
+use crate::errors::data_sources;
+use crate::{BgpkitCommonsError, Result};
 use serde::{Deserialize, Serialize};
 
 const IANA_ASN_SPECIAL_REGISTRY: &str = "https://www.iana.org/assignments/iana-as-numbers-special-registry/special-purpose-as-numbers.csv";
@@ -32,7 +33,9 @@ pub fn load_bogon_asns() -> Result<Vec<BogonAsn>> {
     let mut bogons = Vec::new();
     let mut prev_line: Option<String> = None;
     for line in oneio::read_lines(IANA_ASN_SPECIAL_REGISTRY)? {
-        let mut text = line.ok().ok_or(anyhow!("error reading line"))?;
+        let mut text = line.ok().ok_or_else(|| {
+            BgpkitCommonsError::data_source_error(data_sources::IANA, "error reading line")
+        })?;
         if text.trim() == "" || text.starts_with("AS") {
             continue;
         }
@@ -46,7 +49,11 @@ pub fn load_bogon_asns() -> Result<Vec<BogonAsn>> {
         let splits: Vec<&str> = text.split(',').map(|x| x.trim()).collect();
         if splits.len() != 3 {
             if prev_line.is_some() {
-                return Err(anyhow!("row missing fields: {}", text.as_str()));
+                return Err(BgpkitCommonsError::invalid_format(
+                    "bogon ASN data",
+                    text.as_str(),
+                    "row missing fields",
+                ));
             }
             prev_line = Some(text);
             continue;

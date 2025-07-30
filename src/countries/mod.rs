@@ -19,8 +19,8 @@
 //! ### Countries
 //!
 //! This structure represents a collection of countries. It provides various methods to lookup and retrieve country information.
-use crate::BgpkitCommons;
-use anyhow::{Result, anyhow};
+use crate::errors::{data_sources, load_methods, modules};
+use crate::{BgpkitCommons, BgpkitCommonsError, LazyLoadable, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -57,13 +57,19 @@ impl Countries {
     pub fn new() -> Result<Self> {
         let mut countries: Vec<Country> = vec![];
         for line in oneio::read_lines(DATA_URL)? {
-            let text = line.ok().ok_or(anyhow!("error reading line"))?;
+            let text = line.ok().ok_or_else(|| {
+                BgpkitCommonsError::data_source_error(data_sources::GEONAMES, "error reading line")
+            })?;
             if text.trim() == "" || text.starts_with('#') {
                 continue;
             }
             let splits: Vec<&str> = text.split('\t').collect();
             if splits.len() != 19 {
-                return Err(anyhow!("row missing fields: {}", text.as_str()));
+                return Err(BgpkitCommonsError::invalid_format(
+                    "countries data",
+                    text.as_str(),
+                    "row missing fields",
+                ));
             }
             let code = splits[0].to_string();
             let code3 = splits[1].to_string();
@@ -123,10 +129,34 @@ impl Countries {
     }
 }
 
+impl LazyLoadable for Countries {
+    fn reload(&mut self) -> Result<()> {
+        *self = Countries::new().map_err(|e| {
+            BgpkitCommonsError::data_source_error(data_sources::GEONAMES, e.to_string())
+        })?;
+        Ok(())
+    }
+
+    fn is_loaded(&self) -> bool {
+        !self.countries.is_empty()
+    }
+
+    fn loading_status(&self) -> &'static str {
+        if self.is_loaded() {
+            "Countries data loaded"
+        } else {
+            "Countries data not loaded"
+        }
+    }
+}
+
 impl BgpkitCommons {
     pub fn country_all(&self) -> Result<Vec<Country>> {
         if self.countries.is_none() {
-            return Err(anyhow!("countries is not loaded"));
+            return Err(BgpkitCommonsError::module_not_loaded(
+                modules::COUNTRIES,
+                load_methods::LOAD_COUNTRIES,
+            ));
         }
 
         Ok(self.countries.as_ref().unwrap().all_countries())
@@ -134,21 +164,30 @@ impl BgpkitCommons {
 
     pub fn country_by_code(&self, code: &str) -> Result<Option<Country>> {
         if self.countries.is_none() {
-            return Err(anyhow!("countries is not loaded"));
+            return Err(BgpkitCommonsError::module_not_loaded(
+                modules::COUNTRIES,
+                load_methods::LOAD_COUNTRIES,
+            ));
         }
         Ok(self.countries.as_ref().unwrap().lookup_by_code(code))
     }
 
     pub fn country_by_name(&self, name: &str) -> Result<Vec<Country>> {
         if self.countries.is_none() {
-            return Err(anyhow!("countries is not loaded"));
+            return Err(BgpkitCommonsError::module_not_loaded(
+                modules::COUNTRIES,
+                load_methods::LOAD_COUNTRIES,
+            ));
         }
         Ok(self.countries.as_ref().unwrap().lookup_by_name(name))
     }
 
     pub fn country_by_code3(&self, code: &str) -> Result<Option<Country>> {
         if self.countries.is_none() {
-            return Err(anyhow!("countries is not loaded"));
+            return Err(BgpkitCommonsError::module_not_loaded(
+                modules::COUNTRIES,
+                load_methods::LOAD_COUNTRIES,
+            ));
         }
         Ok(self.countries.as_ref().unwrap().lookup_by_code(code))
     }

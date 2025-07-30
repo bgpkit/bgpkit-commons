@@ -51,7 +51,7 @@ The library follows a lazy-loading pattern:
 - `rpki`: RPKI validation data (historical from RIPE, real-time from Cloudflare)
 
 #### Dependency Management
-- All dependencies except `anyhow` are optional and only included when their respective features are enabled
+- All dependencies are optional and only included when their respective features are enabled (except `thiserror` for error handling)
 - This allows for minimal builds with only the required functionality
 
 #### Convenience Features
@@ -97,10 +97,19 @@ cargo run --no-default-features --features "rpki" --example list_aspas
 ### Code Quality
 - Always run `cargo fmt` after finishing each round of code editing
 - Run clippy checks before committing changes
+- **IMPORTANT**: Before committing any changes, run all relevant tests and checks from `.github/workflows/rust.yaml`:
+  - `cargo fmt --check` - Check code formatting
+  - `cargo build --no-default-features` - Build with no features
+  - `cargo build` - Build with default features
+  - `cargo test` - Run all tests
+  - `cargo clippy --all-features -- -D warnings` - Run clippy on all features
+  - `cargo clippy --no-default-features` - Run clippy with no features
+  - Fix any issues before committing
 
 ### Documentation
 - Update CHANGELOG.md when implementing fixes or features
 - Add changes to the "Unreleased changes" section with appropriate subsections (Feature flags, Bug fixes, Code improvements, etc.)
+- **IMPORTANT**: When changing lib.rs documentation, always run `cargo readme > README.md` and commit the README.md changes with a simple message "docs: update README.md from lib.rs documentation"
 
 ### Git Operations
 - Do not prompt for git operations unless explicitly requested by the user

@@ -1,4 +1,5 @@
-use anyhow::{Result, anyhow};
+use crate::errors::data_sources;
+use crate::{BgpkitCommonsError, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{debug, info};
@@ -25,13 +26,19 @@ fn load_hegemony(path: &str) -> Result<Vec<(u32, f64)>> {
     // load global hegemony scores data CSV file with header where there are two columns: ASN, score
     let mut hegemony = Vec::new();
     for line in oneio::read_lines(path)? {
-        let text = line.ok().ok_or(anyhow!("error reading line"))?;
+        let text = line.ok().ok_or_else(|| {
+            BgpkitCommonsError::data_source_error(data_sources::IIJ_IHR, "error reading line")
+        })?;
         if text.trim() == "" || text.starts_with("asn") {
             continue;
         }
         let splits: Vec<&str> = text.split(',').map(|x| x.trim()).collect();
         if splits.len() != 2 {
-            return Err(anyhow!("row missing fields: {}", text.as_str()));
+            return Err(BgpkitCommonsError::invalid_format(
+                "hegemony data",
+                text.as_str(),
+                "row missing fields",
+            ));
         }
         let asn = match splits[0].parse::<u32>() {
             Ok(asn) => asn,

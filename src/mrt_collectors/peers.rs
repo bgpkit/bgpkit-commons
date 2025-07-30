@@ -1,4 +1,4 @@
-use anyhow::Result;
+use crate::Result;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;

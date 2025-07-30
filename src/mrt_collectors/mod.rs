@@ -7,7 +7,8 @@ Currently supported MRT collector projects:
 
 */
 
-use anyhow::{Result, anyhow};
+use crate::errors::{load_methods, modules};
+use crate::{BgpkitCommonsError, Result};
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize, Serializer};
 use std::cmp::Ordering;
@@ -30,7 +31,10 @@ pub enum MrtCollectorProject {
 }
 
 // Custom serialization function for the `age` field
-fn serialize_project<S>(project: &MrtCollectorProject, serializer: S) -> Result<S::Ok, S::Error>
+fn serialize_project<S>(
+    project: &MrtCollectorProject,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
@@ -98,14 +102,20 @@ pub fn get_all_collectors() -> Result<Vec<MrtCollector>> {
 impl BgpkitCommons {
     pub fn mrt_collectors_all(&self) -> Result<Vec<MrtCollector>> {
         if self.mrt_collectors.is_none() {
-            return Err(anyhow!("mrt_collectors is not loaded"));
+            return Err(BgpkitCommonsError::module_not_loaded(
+                modules::MRT_COLLECTORS,
+                load_methods::LOAD_MRT_COLLECTORS,
+            ));
         }
         Ok(self.mrt_collectors.clone().unwrap())
     }
 
     pub fn mrt_collectors_by_name(&self, name: &str) -> Result<Option<MrtCollector>> {
         if self.mrt_collectors.is_none() {
-            return Err(anyhow!("mrt_collectors is not loaded"));
+            return Err(BgpkitCommonsError::module_not_loaded(
+                modules::MRT_COLLECTORS,
+                load_methods::LOAD_MRT_COLLECTORS,
+            ));
         }
         Ok(self
             .mrt_collectors
@@ -116,16 +126,21 @@ impl BgpkitCommons {
             .cloned())
     }
 
-    pub fn mrt_collectors_by_country(&self, country: &str) -> Option<Vec<MrtCollector>> {
-        self.mrt_collectors
-            .as_ref()
-            .map(|c| c.iter().filter(|x| x.country == country).cloned().collect())
+    pub fn mrt_collectors_by_country(&self, country: &str) -> Result<Vec<MrtCollector>> {
+        match &self.mrt_collectors {
+            Some(c) => Ok(c.iter().filter(|x| x.country == country).cloned().collect()),
+            None => Err(BgpkitCommonsError::module_not_loaded(
+                modules::MRT_COLLECTORS,
+                load_methods::LOAD_MRT_COLLECTORS,
+            )),
+        }
     }
 
     pub fn mrt_collector_peers_all(&self) -> Result<Vec<MrtCollectorPeer>> {
         if self.mrt_collector_peers.is_none() {
-            return Err(anyhow!(
-                "mrt_collector_peers is not loaded, call commons.load_mrt_collector_peers() first"
+            return Err(BgpkitCommonsError::module_not_loaded(
+                modules::MRT_COLLECTOR_PEERS,
+                load_methods::LOAD_MRT_COLLECTOR_PEERS,
             ));
         }
         Ok(self.mrt_collector_peers.clone().unwrap())
@@ -133,7 +148,10 @@ impl BgpkitCommons {
 
     pub fn mrt_collector_peers_full_feed(&self) -> Result<Vec<MrtCollectorPeer>> {
         if self.mrt_collector_peers.is_none() {
-            return Err(anyhow!("mrt_collector_peers is not loaded"));
+            return Err(BgpkitCommonsError::module_not_loaded(
+                modules::MRT_COLLECTOR_PEERS,
+                load_methods::LOAD_MRT_COLLECTOR_PEERS,
+            ));
         }
         // Filter out mrt_collectors that have full feed
         Ok(self

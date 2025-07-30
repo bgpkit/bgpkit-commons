@@ -1,4 +1,4 @@
-use anyhow::Result;
+use crate::{BgpkitCommonsError, Result};
 use peeringdb_rs::{PeeringdbNet, load_peeringdb_net};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -21,7 +21,12 @@ pub struct Peeringdb {
 impl Peeringdb {
     pub fn new() -> Result<Self> {
         let mut peeringdb_map = HashMap::new();
-        let net_vec: Vec<PeeringdbNet> = load_peeringdb_net()?;
+        let net_vec: Vec<PeeringdbNet> = load_peeringdb_net().map_err(|e| {
+            BgpkitCommonsError::data_source_error(
+                crate::errors::data_sources::PEERINGDB,
+                e.to_string(),
+            )
+        })?;
         for net in net_vec {
             if let Some(asn) = net.asn {
                 peeringdb_map.entry(asn).or_insert(PeeringdbData {

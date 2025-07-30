@@ -1,7 +1,7 @@
 //! load RIPE NCC historical RPKI VRP dump
 
+use crate::Result;
 use crate::rpki::{Rir, RoaEntry, RpkiTrie};
-use anyhow::Result;
 use chrono::{Datelike, NaiveDate, NaiveDateTime};
 use ipnet::IpNet;
 use std::str::FromStr;

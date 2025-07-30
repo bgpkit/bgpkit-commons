@@ -116,8 +116,8 @@ mod peeringdb;
 mod population;
 mod sibling_orgs;
 
-use crate::BgpkitCommons;
-use anyhow::{Result, anyhow};
+use crate::errors::{data_sources, load_methods, modules};
+use crate::{BgpkitCommons, BgpkitCommonsError, LazyLoadable, Result};
 use peeringdb::PeeringdbData;
 use serde::{Deserialize, Serialize};
 use sibling_orgs::SiblingOrgsUtils;
@@ -234,6 +234,24 @@ impl AsInfoUtils {
     }
 }
 
+impl LazyLoadable for AsInfoUtils {
+    fn reload(&mut self) -> Result<()> {
+        self.reload()
+    }
+
+    fn is_loaded(&self) -> bool {
+        !self.asinfo_map.is_empty()
+    }
+
+    fn loading_status(&self) -> &'static str {
+        if self.is_loaded() {
+            "ASInfo data loaded"
+        } else {
+            "ASInfo data not loaded"
+        }
+    }
+}
+
 pub fn get_asinfo_map_cached() -> Result<HashMap<u32, AsInfo>> {
     info!("loading asinfo from previously generated BGPKIT cache file...");
     let mut asnames_map = HashMap::new();
@@ -260,9 +278,12 @@ pub fn get_asinfo_map(
         Err(_) => match oneio::read_to_string(RIPE_RIS_ASN_TXT_URL) {
             Ok(t) => t,
             Err(e) => {
-                return Err(anyhow!(
-                    "error reading asinfo (neither mirror or original works): {}",
-                    e
+                return Err(BgpkitCommonsError::data_source_error(
+                    data_sources::BGPKIT,
+                    format!(
+                        "error reading asinfo (neither mirror or original works): {}",
+                        e
+                    ),
                 ));
             }
         },
@@ -270,7 +291,9 @@ pub fn get_asinfo_map(
 
     let as2org_utils = if load_as2org {
         info!("loading as2org data from CAIDA...");
-        Some(as2org_rs::As2org::new(None)?)
+        Some(as2org_rs::As2org::new(None).map_err(|e| {
+            BgpkitCommonsError::data_source_error(data_sources::CAIDA, e.to_string())
+        })?)
     } else {
         None
     };
@@ -358,7 +381,10 @@ impl BgpkitCommons {
     /// ```
     pub fn asinfo_all(&self) -> Result<HashMap<u32, AsInfo>> {
         if self.asinfo.is_none() {
-            return Err(anyhow!("asinfo is not loaded"));
+            return Err(BgpkitCommonsError::module_not_loaded(
+                modules::ASINFO,
+                load_methods::LOAD_ASINFO,
+            ));
         }
 
         Ok(self.asinfo.as_ref().unwrap().asinfo_map.clone())
@@ -387,7 +413,10 @@ impl BgpkitCommons {
     /// ```
     pub fn asinfo_get(&self, asn: u32) -> Result<Option<AsInfo>> {
         if self.asinfo.is_none() {
-            return Err(anyhow!("asinfo is not loaded"));
+            return Err(BgpkitCommonsError::module_not_loaded(
+                modules::ASINFO,
+                load_methods::LOAD_ASINFO,
+            ));
         }
 
         Ok(self.asinfo.as_ref().unwrap().get(asn).cloned())
@@ -420,10 +449,17 @@ impl BgpkitCommons {
     /// This function requires the asinfo to be loaded with as2org data.
     pub fn asinfo_are_siblings(&self, asn1: u32, asn2: u32) -> Result<bool> {
         if self.asinfo.is_none() {
-            return Err(anyhow!("asinfo is not loaded"));
+            return Err(BgpkitCommonsError::module_not_loaded(
+                modules::ASINFO,
+                load_methods::LOAD_ASINFO,
+            ));
         }
         if !self.asinfo.as_ref().unwrap().load_as2org {
-            return Err(anyhow!("asinfo is not loaded with as2org data"));
+            return Err(BgpkitCommonsError::module_not_configured(
+                modules::ASINFO,
+                "as2org data",
+                "load_asinfo() with as2org=true",
+            ));
         }
 
         let info_1_opt = self.asinfo_get(asn1)?;

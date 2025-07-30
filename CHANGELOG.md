@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Feature flags
 
 * Added individual feature flags for each module (`asinfo`, `as2rel`, `bogons`, `countries`, `mrt_collectors`, `rpki`)
-* Made all dependencies optional except `anyhow` - dependencies are only compiled when their respective features are enabled
+* Made all dependencies optional except `thiserror` - dependencies are only compiled when their respective features are enabled
 * Added `all` convenience feature that enables all modules (set as default for backwards compatibility)
 * Removed `native-tls` and `rustls` feature flags - oneio now uses rustls by default
 * Updated GitHub Actions workflow to test all feature combinations
@@ -22,6 +22,19 @@ All notable changes to this project will be documented in this file.
 
 * Cleaned up `lib.rs` by using full paths instead of feature-gated imports
 * Enhanced CI testing with comprehensive feature combination validation
+* Significantly improved lib.rs documentation with comprehensive usage examples
+* Added feature flag documentation and minimal build examples
+* Enhanced module descriptions with clear feature requirements
+* Updated lib.rs with detailed functionality descriptions including load methods, access methods, data sources, and capabilities for each module
+* Standardized error handling across all modules - all access methods now return `Result<T>` with clear error messages instead of mixed `Option<T>` and `Result<T>` patterns
+* Unified error message format across all modules with consistent "Data not loaded. Call load_xxx() first." pattern
+* Added LazyLoadable trait interface for consistent reloading and status checking across all data modules
+* Added loading_status() method to BgpkitCommons for inspecting which modules are currently loaded
+* Replaced anyhow with thiserror for structured error handling - introduced BgpkitCommonsError with specific error types for module loading failures, data source errors, and invalid formats
+* Added comprehensive error constants and helper methods for consistent error creation across modules
+* Eliminated all anyhow! macro calls in favor of structured error types with specific context and guidance
+* Added From implementations for common parsing errors (ParseIntError, ParseFloatError) to support automatic error conversion
+* Successfully removed anyhow dependency completely - now using only thiserror 2.0 for all error handling
 
 ## v0.8.2 - 2025-06-06
 

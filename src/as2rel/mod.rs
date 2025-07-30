@@ -5,8 +5,8 @@
 //! * [as2rel-v4-latest.json.bz2](https://data.bgpkit.com/as2rel/as2rel-v4-latest.json.bz2): latest IPv4 relationship
 //! * [as2rel-v6-latest.json.bz2](https://data.bgpkit.com/as2rel/as2rel-v6-latest.json.bz2): latest IPv6 relationship
 
-use crate::BgpkitCommons;
-use anyhow::{Result, anyhow};
+use crate::errors::{data_sources, load_methods, modules};
+use crate::{BgpkitCommons, BgpkitCommonsError, LazyLoadable, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
@@ -26,7 +26,7 @@ pub enum AsRelationship {
 }
 
 impl Serialize for AsRelationship {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -39,7 +39,7 @@ impl Serialize for AsRelationship {
 }
 
 impl<'de> Deserialize<'de> for AsRelationship {
-    fn deserialize<D>(deserializer: D) -> Result<AsRelationship, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<AsRelationship, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -182,6 +182,27 @@ impl As2relBgpkit {
     }
 }
 
+impl LazyLoadable for As2relBgpkit {
+    fn reload(&mut self) -> Result<()> {
+        *self = As2relBgpkit::new().map_err(|e| {
+            BgpkitCommonsError::data_source_error(data_sources::BGPKIT, e.to_string())
+        })?;
+        Ok(())
+    }
+
+    fn is_loaded(&self) -> bool {
+        !self.v4_rels_map.is_empty() || !self.v6_rels_map.is_empty()
+    }
+
+    fn loading_status(&self) -> &'static str {
+        if self.is_loaded() {
+            "AS2Rel data loaded"
+        } else {
+            "AS2Rel data not loaded"
+        }
+    }
+}
+
 fn parse_as2rel_data(url: &str) -> Result<Vec<As2relEntry>> {
     info!("loading AS2REL data from {}", url);
     let data: Vec<As2relEntry> = oneio::read_json_struct(url)?;
@@ -195,7 +216,10 @@ impl BgpkitCommons {
         asn2: u32,
     ) -> Result<(Vec<As2relBgpkitData>, Vec<As2relBgpkitData>)> {
         if self.as2rel.is_none() {
-            return Err(anyhow!("as2rel is not loaded"));
+            return Err(BgpkitCommonsError::module_not_loaded(
+                modules::AS2REL,
+                load_methods::LOAD_AS2REL,
+            ));
         }
 
         Ok(self.as2rel.as_ref().unwrap().lookup_pair(asn1, asn2))

@@ -1,4 +1,4 @@
-use anyhow::Result;
+use crate::Result;
 use chrono::NaiveDate;
 use serde::{Deserialize, Deserializer, Serialize, de};
 use std::collections::HashMap;
@@ -34,7 +34,7 @@ struct ApnicAsnPopulation {
     pub data: Vec<ApnicAsnPopulationEntry>,
 }
 
-fn deserialize_date<'de, D>(d: D) -> Result<NaiveDate, D::Error>
+fn deserialize_date<'de, D>(d: D) -> std::result::Result<NaiveDate, D::Error>
 where
     D: Deserializer<'de>,
 {
