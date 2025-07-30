@@ -101,6 +101,7 @@ cargo run --no-default-features --features "rpki" --example list_aspas
 ### Documentation
 - Update CHANGELOG.md when implementing fixes or features
 - Add changes to the "Unreleased changes" section with appropriate subsections (Feature flags, Bug fixes, Code improvements, etc.)
+- **IMPORTANT**: When changing lib.rs documentation, always run `cargo readme > README.md` and commit the README.md changes with a simple message "docs: update README.md from lib.rs documentation"
 
 ### Git Operations
 - Do not prompt for git operations unless explicitly requested by the user
