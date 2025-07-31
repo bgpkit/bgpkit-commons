@@ -105,11 +105,11 @@ impl RpkiTrie {
             let prefix = roa.prefix.parse::<IpNet>()?;
             let max_length = roa.max_length;
             let rir = Rir::from_str(roa.ta.as_str()).ok();
-            
+
             // Convert expires timestamp to NaiveDateTime
-            let not_after = DateTime::from_timestamp(roa.expires as i64, 0)
-                .map(|dt| dt.naive_utc());
-            
+            let not_after =
+                DateTime::from_timestamp(roa.expires as i64, 0).map(|dt| dt.naive_utc());
+
             let roa_entry = RoaEntry {
                 prefix,
                 asn: roa.asn,
@@ -135,75 +135,85 @@ mod tests {
     // Run with: cargo test --release --features rpki test_cloudflare_rpki_expiry_loading -- --ignored --nocapture
     fn test_cloudflare_rpki_expiry_loading() {
         println!("Loading RPKI data from Cloudflare...");
-        
+
         // Load the RPKI data
         let trie = RpkiTrie::from_cloudflare().expect("Failed to load Cloudflare RPKI data");
-        
+
         // Count total ROAs
         let total_roas: usize = trie.trie.iter().map(|(_, roas)| roas.len()).sum();
         println!("Total ROAs loaded: {}", total_roas);
-        
+
         // Count ROAs with expiry dates
         let mut roas_with_expiry = 0;
         let mut expired_roas = 0;
         let mut future_roas = 0;
         let current_time = Utc::now().naive_utc();
-        
+
         for (prefix, roas) in trie.trie.iter() {
             for roa in roas {
                 if roa.not_after.is_some() {
                     roas_with_expiry += 1;
-                    
+
                     if let Some(not_after) = roa.not_after {
                         if not_after < current_time {
                             expired_roas += 1;
-                            println!("Expired ROA found: prefix={}, asn={}, expired={}", 
-                                     prefix, roa.asn, not_after);
+                            println!(
+                                "Expired ROA found: prefix={}, asn={}, expired={}",
+                                prefix, roa.asn, not_after
+                            );
                         }
                     }
                 }
-                
+
                 if let Some(not_before) = roa.not_before {
                     if not_before > current_time {
                         future_roas += 1;
-                        println!("Future ROA found: prefix={}, asn={}, valid_from={}", 
-                                 prefix, roa.asn, not_before);
+                        println!(
+                            "Future ROA found: prefix={}, asn={}, valid_from={}",
+                            prefix, roa.asn, not_before
+                        );
                     }
                 }
             }
         }
-        
+
         println!("\nSummary:");
         println!("- ROAs with expiry dates: {}", roas_with_expiry);
         println!("- Expired ROAs: {}", expired_roas);
         println!("- Future ROAs: {}", future_roas);
-        
+
         // Test expiry validation with a sample ROA if any have expiry dates
         if roas_with_expiry > 0 {
             // Find a ROA with expiry date to test
             for (prefix, roas) in trie.trie.iter() {
                 for roa in roas {
                     if roa.not_after.is_some() {
-                        println!("\nTesting validation with expiry check for prefix={}, asn={}", prefix, roa.asn);
-                        
+                        println!(
+                            "\nTesting validation with expiry check for prefix={}, asn={}",
+                            prefix, roa.asn
+                        );
+
                         // Test with current time
                         let validation = trie.validate_check_expiry(&prefix, roa.asn, None);
                         println!("Validation result (current time): {:?}", validation);
-                        
+
                         // Test with a far future time
                         let future_time = DateTime::from_timestamp(3000000000, 0)
                             .map(|dt| dt.naive_utc())
                             .unwrap();
-                        let future_validation = trie.validate_check_expiry(&prefix, roa.asn, Some(future_time));
+                        let future_validation =
+                            trie.validate_check_expiry(&prefix, roa.asn, Some(future_time));
                         println!("Validation result (future time): {:?}", future_validation);
-                        
+
                         break;
                     }
                 }
-                if roas_with_expiry > 0 { break; }
+                if roas_with_expiry > 0 {
+                    break;
+                }
             }
         }
-        
+
         // Basic sanity check - we should have loaded some ROAs
         assert!(total_roas > 0, "No ROAs were loaded from Cloudflare");
         println!("\nTest completed successfully!");
