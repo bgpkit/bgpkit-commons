@@ -82,7 +82,7 @@
 //! # Usage Examples
 //!
 //! ## Loading Real-time Data (Cloudflare)
-//! ```rust
+//! ```rust,no_run
 //! use bgpkit_commons::BgpkitCommons;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -111,7 +111,7 @@
 //! ```
 //!
 //! ## Loading Historical Data (RIPE)
-//! ```rust
+//! ```rust,no_run
 //! use bgpkit_commons::BgpkitCommons;
 //! use chrono::NaiveDate;
 //!
@@ -129,7 +129,7 @@
 //! ```
 //!
 //! ## Direct Trie Usage
-//! ```rust
+//! ```rust,no_run
 //! use bgpkit_commons::rpki::{RpkiTrie, RpkiValidation};
 //! use ipnet::IpNet;
 //!
@@ -150,7 +150,7 @@
 //!
 //! ## Handling Multiple ROAs
 //! A single prefix can have multiple ROAs with different ASNs and validity periods:
-//! ```rust
+//! ```rust,no_run
 //! use bgpkit_commons::BgpkitCommons;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
