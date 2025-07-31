@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased changes
 
+## v0.9.1 - 2025-07-31
+
 ### Dependencies
 
 * Made `serde` a required dependency (no longer optional) to ensure all public types can be serialized/deserialized
