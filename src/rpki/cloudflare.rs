@@ -7,7 +7,7 @@ use std::str::FromStr;
 
 use super::{Rir, RoaEntry, RpkiTrie};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CfData {
     pub metadata: CfMetaData,
     pub roas: Vec<CfRoaEntry>,

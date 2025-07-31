@@ -1,9 +1,11 @@
 use crate::Result;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use tracing::info;
 
 const BGPKIT_SIBLING_ORGS_URL: &str = "https://data.bgpkit.com/commons/sibling-orgs.txt";
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SiblingOrgsUtils {
     sibling_orgs_map: HashMap<String, HashSet<String>>,
 }

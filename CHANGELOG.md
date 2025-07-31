@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased changes
 
+### Dependencies
+
+* Made `serde` a required dependency (no longer optional) to ensure all public types can be serialized/deserialized
+* Added `Serialize` and `Deserialize` derives to all public structs that were missing them
+
 ## v0.9.0 - 2025-07-29
 
 ### Breaking changes
