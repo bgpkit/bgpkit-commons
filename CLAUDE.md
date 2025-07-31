@@ -114,6 +114,7 @@ cargo run --no-default-features --features "rpki" --example list_aspas
 ### Git Operations
 - Do not prompt for git operations unless explicitly requested by the user
 - Let the user initiate commits and other git actions when they're ready
+- **IMPORTANT**: When pushing commits, always list all commits to be pushed first using `git log --oneline origin/[branch]..HEAD` and ask for user confirmation
 
 ### Release Process
 When preparing a release, follow these steps in order:
