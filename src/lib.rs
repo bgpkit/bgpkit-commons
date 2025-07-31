@@ -287,9 +287,9 @@ impl BgpkitCommons {
     #[cfg(feature = "rpki")]
     pub fn load_rpki(&mut self, date_opt: Option<chrono::NaiveDate>) -> Result<()> {
         if let Some(date) = date_opt {
-            self.rpki_trie = Some(crate::rpki::RpkiTrie::from_ripe_historical(date)?);
+            self.rpki_trie = Some(rpki::RpkiTrie::from_ripe_historical(date)?);
         } else {
-            self.rpki_trie = Some(crate::rpki::RpkiTrie::from_cloudflare()?);
+            self.rpki_trie = Some(rpki::RpkiTrie::from_cloudflare()?);
         }
         Ok(())
     }
