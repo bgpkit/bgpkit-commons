@@ -7,29 +7,24 @@ All notable changes to this project will be documented in this file.
 ### Features
 
 * **RPKI expiry support**: Added support for Cloudflare RPKI ROA expiry timestamps
-  - Added `expires` field to `CfRoaEntry` structure for Cloudflare RPKI data
-  - ROA expiry timestamps are now mapped to `not_after` field in `RoaEntry`
-  - Added `validate_check_expiry()` method to `RpkiTrie` for time-aware validation
-  - Added `rpki_validate_check_expiry()` method to `BgpkitCommons` for expiry-aware validation
-  - Expired or not-yet-valid ROAs now return `Unknown` instead of `Invalid` (correct RPKI behavior)
-
-### Bug fixes
-
-* Fixed typo in `rpki_validate()` method (`vapidate` → `validate`)
+    - Added `expires` field to `CfRoaEntry` structure for Cloudflare RPKI data
+    - ROA expiry timestamps are now mapped to `not_after` field in `RoaEntry`
+    - Added `validate_check_expiry()` method to `RpkiTrie` for time-aware validation
+    - Added `rpki_validate_check_expiry()` method to `BgpkitCommons` for expiry-aware validation
 
 ### Documentation
 
-* **Comprehensive RPKI documentation**: Added extensive module documentation covering:
-  - Data structures and validation process explanation
-  - Usage examples for both real-time (Cloudflare) and historical (RIPE) data sources
-  - Performance considerations and error handling guidance
-  - Multiple ROAs per prefix handling examples
+* Added extensive module documentation covering:
+    - Data structures and validation process explanation
+    - Usage examples for both real-time (Cloudflare) and historical (RIPE) data sources
+    - Performance considerations and error handling guidance
+    - Multiple ROAs per prefix handling examples
 
 ### Testing
 
-* Added comprehensive unit tests for expiry checking functionality
-* Added manual integration test for Cloudflare RPKI data loading with expiry validation
-  - Run with: `cargo test --release --features rpki test_cloudflare_rpki_expiry_loading -- --ignored --nocapture`
+* Added unit tests for expiry checking functionality
+* Added a manual integration test for Cloudflare RPKI data loading with expiry validation
+    - Run with: `cargo test --release --features rpki test_cloudflare_rpki_expiry_loading -- --ignored --nocapture`
 
 ## v0.9.1 - 2025-07-31
 
