@@ -124,6 +124,13 @@ When preparing a release, follow these steps in order:
 2. **Update Cargo.toml**:
    - Update the `version` field to the new version number
    - Follow semantic versioning (major.minor.patch)
-3. **Create and push git tag**:
+3. **Review changes before committing**:
+   - Run `git diff` to show all changes
+   - Ask the user to confirm the diff is correct
+   - Check for accidental version mismatches or unwanted changelog entries
+4. **Commit the release preparation**:
+   - After user confirmation, commit with message: `release: prepare v[VERSION]`
+5. **Create and push git tag**:
    - Create a new git tag with the version number: `git tag v[VERSION]`
-   - Push the tag to remote: `git push origin v[VERSION]`
+   - Push commits first: `git push origin [branch-name]`
+   - Then push the tag: `git push origin v[VERSION]`
