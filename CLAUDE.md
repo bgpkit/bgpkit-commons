@@ -116,6 +116,14 @@ cargo run --no-default-features --features "rpki" --example list_aspas
 - Let the user initiate commits and other git actions when they're ready
 - **IMPORTANT**: When pushing commits, always list all commits to be pushed first using `git log --oneline origin/[branch]..HEAD` and ask for user confirmation
 
+### Commit Messages and Changelog Writing Guidelines
+- **Keep language factual and professional**: Avoid subjective or exaggerated descriptive words
+- **Avoid words like**: "comprehensive", "extensive", "amazing", "powerful", "robust", "excellent", etc.
+- **Use objective language**: State what was added, changed, or fixed without editorial commentary
+- **Good examples**: "Added RPKI documentation", "Fixed validation logic", "Updated error handling"
+- **Poor examples**: "Added comprehensive RPKI documentation", "Significantly improved validation", "Enhanced robust error handling"
+- **Exception**: Technical precision words are acceptable when factually accurate (e.g., "efficient lookup", "atomic operation")
+
 ### Release Process
 When preparing a release, follow these steps in order:
 1. **Update CHANGELOG.md**: 
