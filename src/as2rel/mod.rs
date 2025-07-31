@@ -92,6 +92,7 @@ impl As2relEntry {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct As2relBgpkit {
     v4_rels_map: HashMap<(u32, u32), HashSet<As2relEntry>>,
     v6_rels_map: HashMap<(u32, u32), HashSet<As2relEntry>>,

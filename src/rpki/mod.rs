@@ -33,9 +33,11 @@ use ipnet_trie::IpnetTrie;
 use crate::errors::{load_methods, modules};
 use crate::{BgpkitCommons, BgpkitCommonsError, LazyLoadable, Result};
 pub use cloudflare::*;
+use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::str::FromStr;
 
+#[derive(Clone)]
 pub struct RpkiTrie {
     pub trie: IpnetTrie<Vec<RoaEntry>>,
     pub aspas: Vec<CfAspaEntry>,
@@ -52,7 +54,7 @@ impl Default for RpkiTrie {
     }
 }
 
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RoaEntry {
     pub prefix: IpNet,
     pub asn: u32,
@@ -62,7 +64,7 @@ pub struct RoaEntry {
     pub not_after: Option<NaiveDateTime>,
 }
 
-#[derive(Clone, Debug, Copy, PartialEq, Eq)]
+#[derive(Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Rir {
     AFRINIC,
     APNIC,
@@ -170,7 +172,7 @@ impl RpkiTrie {
             if p.contains(prefix) {
                 for roa in roas {
                     if roa.max_length >= prefix.prefix_len() {
-                        all_matches.push(*roa);
+                        all_matches.push(roa.clone());
                     }
                 }
             }

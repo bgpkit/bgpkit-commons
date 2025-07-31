@@ -45,8 +45,7 @@ pub struct Country {
     pub neighbors: Vec<String>,
 }
 
-/// Countries data structure that contains a collection of countries
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Countries {
     countries: HashMap<String, Country>,
 }
