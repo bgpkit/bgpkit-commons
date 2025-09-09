@@ -147,16 +147,14 @@ impl AsInfo {
     /// 3. The default `name` field
     /// ```
     pub fn get_preferred_name(&self) -> String {
-        if let Some(peeringdb_data) = &self.peeringdb {
-            if let Some(name) = &peeringdb_data.name {
+        if let Some(peeringdb_data) = &self.peeringdb
+            && let Some(name) = &peeringdb_data.name {
                 return name.clone();
             }
-        }
-        if let Some(as2org_info) = &self.as2org {
-            if !as2org_info.org_name.is_empty() {
+        if let Some(as2org_info) = &self.as2org
+            && !as2org_info.org_name.is_empty() {
                 return as2org_info.org_name.clone();
             }
-        }
         self.name.clone()
     }
 }
@@ -464,23 +462,20 @@ impl BgpkitCommons {
 
         let info_1_opt = self.asinfo_get(asn1)?;
         let info_2_opt = self.asinfo_get(asn2)?;
-        if info_1_opt.is_some() && info_2_opt.is_some() {
-            let org_1_opt = info_1_opt.unwrap().as2org;
-            let org_2_opt = info_2_opt.unwrap().as2org;
-            if org_1_opt.is_some() && org_2_opt.is_some() {
-                let org_id_1 = org_1_opt.unwrap().org_id;
-                let org_id_2 = org_2_opt.unwrap().org_id;
 
-                return Ok(org_id_1 == org_id_2
-                    || self
-                        .asinfo
-                        .as_ref()
-                        .unwrap()
-                        .sibling_orgs
-                        .as_ref()
-                        .unwrap()
-                        .are_sibling_orgs(org_id_1.as_str(), org_id_2.as_str()));
-            }
+        if let (Some(info1), Some(info2)) = (info_1_opt, info_2_opt)
+            && let (Some(org1), Some(org2)) = (info1.as2org, info2.as2org)
+        {
+            let org_id_1 = org1.org_id;
+            let org_id_2 = org2.org_id;
+
+            return Ok(org_id_1 == org_id_2
+                || self
+                    .asinfo
+                    .as_ref()
+                    .and_then(|a| a.sibling_orgs.as_ref())
+                    .map(|s| s.are_sibling_orgs(org_id_1.as_str(), org_id_2.as_str()))
+                    .unwrap_or(false));
         }
         Ok(false)
     }
