@@ -22,7 +22,7 @@ as2org-rs = { version = "1.0.0", optional = true }
 chrono = { version = "0.4", features = ["serde"], optional = true }
 ipnet = { version = "2.9", features = ["serde"], optional = true }
 ipnet-trie = { version = "0.2.0", optional = true }
-oneio = { version = "0.18.2", optional = true }
+oneio = { version = "0.19.0", optional = true, features = ["json"] }
 peeringdb-rs = { version = "0.1.1", optional = true }
 regex = { version = "1", optional = true }
 serde_json = { version = "1", optional = true }
@@ -31,7 +31,7 @@ tracing = { version = "0.1", optional = true }
 [dev-dependencies]
 tracing-subscriber = "0.3"
 serde_json = "1"
-oneio = { version = "0.18.2" }
+oneio = { version = "0.19.0", features = ["json"] }
 
 
 [features]
