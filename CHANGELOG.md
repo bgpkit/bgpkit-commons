@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased changes
 
+## v0.9.3 - 2025-09-09
+
+### Maintenance
+
+* Updated `peeringdb-rs` to `0.1.2` to address 403 error from PeeringDB API
+* Updated `oneio` to `0.19.0`
+
+### Code quality
+
+* Addressed clippy warnings across the codebase with focus on `asinfo` module.
+* Refactored `asinfo_are_siblings` to use if-let chains and Option combinators, removing unnecessary `unwrap()` calls.
+* Simplified conditional logic (collapsible if) for better readability and safety.
+
 ## v0.9.2 - 2025-07-31
 
 ### Features
