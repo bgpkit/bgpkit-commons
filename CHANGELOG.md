@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased changes
 
+## v0.9.4 - 2025-09-09
+
+### Hot-fix
+
+* Remove `let-chain` coding style to maintain compatibility with older Rust versions.
+
 ## v0.9.3 - 2025-09-09
 
 ### Maintenance
