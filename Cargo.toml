@@ -63,3 +63,4 @@ required-features = ["rpki"]
 
 [lints.clippy]
 uninlined_format_args = "allow"
+collapsible_if = "allow"
