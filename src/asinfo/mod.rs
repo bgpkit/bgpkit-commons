@@ -148,13 +148,15 @@ impl AsInfo {
     /// ```
     pub fn get_preferred_name(&self) -> String {
         if let Some(peeringdb_data) = &self.peeringdb
-            && let Some(name) = &peeringdb_data.name {
-                return name.clone();
-            }
+            && let Some(name) = &peeringdb_data.name
+        {
+            return name.clone();
+        }
         if let Some(as2org_info) = &self.as2org
-            && !as2org_info.org_name.is_empty() {
-                return as2org_info.org_name.clone();
-            }
+            && !as2org_info.org_name.is_empty()
+        {
+            return as2org_info.org_name.clone();
+        }
         self.name.clone()
     }
 }

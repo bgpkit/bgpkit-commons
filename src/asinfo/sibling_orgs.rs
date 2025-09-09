@@ -47,9 +47,10 @@ impl SiblingOrgsUtils {
 
     pub fn are_sibling_orgs(&self, org_1: &str, org_2: &str) -> bool {
         if let Some(s) = self.sibling_orgs_map.get(org_1.to_lowercase().as_str())
-            && s.contains(org_2.to_lowercase().as_str()) {
-                return true;
-            }
+            && s.contains(org_2.to_lowercase().as_str())
+        {
+            return true;
+        }
 
         false
     }
