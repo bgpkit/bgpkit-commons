@@ -1,6 +1,6 @@
 [package]
 name = "bgpkit-commons"
-version = "0.9.4"
+version = "0.9.5"
 edition = "2024"
 authors = ["Mingwei Zhang <mingwei@bgpkit.com>"]
 readme = "README.md"
@@ -18,11 +18,11 @@ keywords = ["bgp", "bgpkit"]
 thiserror = "2.0"
 serde = { version = "1.0", features = ["derive"] }
 
-as2org-rs = { version = "1.0.0", optional = true }
+as2org-rs = { version = "1.1", optional = true }
 chrono = { version = "0.4", features = ["serde"], optional = true }
 ipnet = { version = "2.9", features = ["serde"], optional = true }
-ipnet-trie = { version = "0.2.0", optional = true }
-oneio = { version = "0.19.0", optional = true, features = ["json"] }
+ipnet-trie = { version = "0.3.0", optional = true }
+oneio = { version = "0.19.2", optional = true, features = ["json"] }
 peeringdb-rs = { version = "0.1.2", optional = true }
 regex = { version = "1", optional = true }
 serde_json = { version = "1", optional = true }

@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased changes
 
+## v0.9.5 - 2025-10-29
+
+### Fix CAIDA as2org data loading issue
+
+* Update `as2org-rs` to `1.1.0` to fix CAIDA as2org data loading issue.
+
+### Maintenance
+
+* Update dependencies
+
 ## v0.9.4 - 2025-09-09
 
 ### Hot-fix
