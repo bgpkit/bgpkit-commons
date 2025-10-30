@@ -2,7 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased changes
+## v0.9.6 - 2025-10-29
+
+### Maintenance
+
+* Update dependencies to better handle rustls crypto providers:
+    - peeringdb-rs to 0.1.3
+    - oneio to 0.20.0
+    - as2org-rs to 1.1.1
 
 ## v0.9.5 - 2025-10-29
 
