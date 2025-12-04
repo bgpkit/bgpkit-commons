@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Crate Consolidation
+
+* **Migrated `as2org-rs` into bgpkit-commons**: The CAIDA AS-to-Organization mapping functionality previously provided by the external `as2org-rs` crate has been fully integrated into the `asinfo` module
+    - New `src/asinfo/as2org.rs` module provides `As2org` struct with `new()`, `get_as_info()`, `get_siblings()`, and `are_siblings()` methods
+    - Removed external `as2org-rs` dependency from Cargo.toml
+    - Single codebase simplifies maintenance and patch application
+
+* **Migrated `peeringdb-rs` into bgpkit-commons**: The PeeringDB API access functionality previously provided by the external `peeringdb-rs` crate has been fully integrated into the `asinfo` module
+    - Updated `src/asinfo/peeringdb.rs` with full PeeringDB API client implementation
+    - Includes `PeeringdbNet` struct and `load_peeringdb_net()` function for direct API access
+    - Removed external `peeringdb-rs` dependency from Cargo.toml
+
+* **Updated feature flags**: The `asinfo` feature now uses `regex` instead of external crate dependencies
+    - Before: `asinfo = ["as2org-rs", "peeringdb-rs", "oneio", "serde_json", "tracing", "chrono"]`
+    - After: `asinfo = ["oneio", "serde_json", "tracing", "chrono", "regex"]`
+
 ### API Improvements
 
 * **AsInfoBuilder**: Added a new builder pattern for loading AS information with specific data sources
@@ -31,6 +47,29 @@ commons.load_asinfo_with(builder)?;
 * All modules now consistently support both:
     - Central access via `BgpkitCommons` instance
     - Direct module access (e.g., `bgpkit_commons::bogons::Bogons::new()`)
+
+### Testing Improvements
+
+* **Comprehensive as2org module tests**: Added extensive unit tests for the migrated CAIDA AS-to-Organization functionality
+    - JSON deserialization tests for `As2orgJsonOrg` and `As2orgJsonAs` structures
+    - Tests for optional fields and default values
+    - `As2orgAsInfo` struct creation and serialization round-trip tests
+    - `fix_latin1_misinterpretation` function tests for edge cases
+    - Integration tests (ignored by default) for `As2org::new()`, `get_as_info()`, `get_siblings()`, and `are_siblings()` methods
+
+* **Comprehensive peeringdb module tests**: Added extensive unit tests for the migrated PeeringDB functionality
+    - `PeeringdbData` struct creation, serialization, and deserialization tests
+    - `PeeringdbNet` struct tests with all optional fields
+    - `PeeringdbNetResponse` API response deserialization tests
+    - `Peeringdb` struct tests for `get_data()`, `contains()`, `len()`, `is_empty()`, and `get_all_asns()` methods
+    - Empty database edge case tests
+    - Integration tests (ignored by default) for live API access
+
+* **New Peeringdb helper methods**: Added utility methods to the `Peeringdb` struct for better usability
+    - `len()`: Get the number of networks in the database
+    - `is_empty()`: Check if the database is empty
+    - `contains(asn)`: Check if an ASN exists in PeeringDB
+    - `get_all_asns()`: Get all ASNs in the database
 
 ## v0.9.6 - 2025-10-29
 

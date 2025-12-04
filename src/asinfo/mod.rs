@@ -111,6 +111,7 @@
 //! let are_siblings = bgpkit.asinfo_are_siblings(3333, 3334).unwrap();
 //! ```
 
+mod as2org;
 mod hegemony;
 mod peeringdb;
 mod population;
@@ -362,9 +363,7 @@ pub fn get_asinfo_map(
 
     let as2org_utils = if load_as2org {
         info!("loading as2org data from CAIDA...");
-        Some(as2org_rs::As2org::new(None).map_err(|e| {
-            BgpkitCommonsError::data_source_error(data_sources::CAIDA, e.to_string())
-        })?)
+        Some(as2org::As2org::new(None)?)
     } else {
         None
     };

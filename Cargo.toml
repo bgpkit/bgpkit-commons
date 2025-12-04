@@ -18,12 +18,10 @@ keywords = ["bgp", "bgpkit"]
 thiserror = "2.0"
 serde = { version = "1.0", features = ["derive"] }
 
-as2org-rs = { version = "1.1.1", optional = true }
 chrono = { version = "0.4", features = ["serde"], optional = true }
 ipnet = { version = "2.9", features = ["serde"], optional = true }
 ipnet-trie = { version = "0.3.0", optional = true }
 oneio = { version = "0.20.0", optional = true, features = ["json"] }
-peeringdb-rs = { version = "0.1.3", optional = true }
 regex = { version = "1", optional = true }
 serde_json = { version = "1", optional = true }
 tracing = { version = "0.1", optional = true }
@@ -38,7 +36,7 @@ oneio = { version = "0.20.0", features = ["json"] }
 default = ["all"]
 
 # Module features
-asinfo = ["as2org-rs", "peeringdb-rs", "oneio", "serde_json", "tracing", "chrono"]
+asinfo = ["oneio", "serde_json", "tracing", "chrono", "regex"]
 as2rel = ["oneio", "serde_json", "tracing"]
 bogons = ["oneio", "ipnet", "regex", "chrono"]
 countries = ["oneio"]
