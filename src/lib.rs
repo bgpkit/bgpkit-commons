@@ -339,6 +339,46 @@ impl BgpkitCommons {
         Ok(())
     }
 
+    /// Returns a builder for loading AS information with specific data sources.
+    ///
+    /// This provides a more ergonomic way to configure which data sources to load
+    /// compared to the `load_asinfo()` method with boolean parameters.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use bgpkit_commons::BgpkitCommons;
+    ///
+    /// let mut commons = BgpkitCommons::new();
+    /// let builder = commons.asinfo_builder()
+    ///     .with_as2org()
+    ///     .with_peeringdb();
+    /// commons.load_asinfo_with(builder).unwrap();
+    /// ```
+    #[cfg(feature = "asinfo")]
+    pub fn asinfo_builder(&self) -> crate::asinfo::AsInfoBuilder {
+        crate::asinfo::AsInfoBuilder::new()
+    }
+
+    /// Load AS information using a pre-configured builder.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use bgpkit_commons::BgpkitCommons;
+    ///
+    /// let mut commons = BgpkitCommons::new();
+    /// let builder = commons.asinfo_builder()
+    ///     .with_as2org()
+    ///     .with_hegemony();
+    /// commons.load_asinfo_with(builder).unwrap();
+    /// ```
+    #[cfg(feature = "asinfo")]
+    pub fn load_asinfo_with(&mut self, builder: crate::asinfo::AsInfoBuilder) -> Result<()> {
+        self.asinfo = Some(builder.build()?);
+        Ok(())
+    }
+
     /// Load AS-level relationship data
     #[cfg(feature = "as2rel")]
     pub fn load_as2rel(&mut self) -> Result<()> {

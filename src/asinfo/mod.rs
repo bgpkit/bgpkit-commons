@@ -118,13 +118,13 @@ mod sibling_orgs;
 
 use crate::errors::{data_sources, load_methods, modules};
 use crate::{BgpkitCommons, BgpkitCommonsError, LazyLoadable, Result};
-use peeringdb::PeeringdbData;
 use serde::{Deserialize, Serialize};
 use sibling_orgs::SiblingOrgsUtils;
 use std::collections::HashMap;
 use tracing::info;
 
 pub use hegemony::HegemonyData;
+pub use peeringdb::PeeringdbData;
 pub use population::AsnPopulationData;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -172,6 +172,77 @@ pub struct As2orgInfo {
 const RIPE_RIS_ASN_TXT_URL: &str = "https://ftp.ripe.net/ripe/asnames/asn.txt";
 const BGPKIT_ASN_TXT_MIRROR_URL: &str = "https://data.bgpkit.com/commons/asn.txt";
 const BGPKIT_ASNINFO_URL: &str = "https://data.bgpkit.com/commons/asinfo.jsonl";
+
+/// Builder for configuring which data sources to load for AS information.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use bgpkit_commons::asinfo::AsInfoBuilder;
+///
+/// let asinfo = AsInfoBuilder::new()
+///     .with_as2org()
+///     .with_peeringdb()
+///     .build()
+///     .unwrap();
+/// ```
+#[derive(Default)]
+pub struct AsInfoBuilder {
+    load_as2org: bool,
+    load_population: bool,
+    load_hegemony: bool,
+    load_peeringdb: bool,
+}
+
+impl AsInfoBuilder {
+    /// Create a new builder with all data sources disabled by default.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Enable loading CAIDA AS-to-Organization mapping data.
+    pub fn with_as2org(mut self) -> Self {
+        self.load_as2org = true;
+        self
+    }
+
+    /// Enable loading APNIC AS population data.
+    pub fn with_population(mut self) -> Self {
+        self.load_population = true;
+        self
+    }
+
+    /// Enable loading IIJ IHR hegemony score data.
+    pub fn with_hegemony(mut self) -> Self {
+        self.load_hegemony = true;
+        self
+    }
+
+    /// Enable loading PeeringDB data.
+    pub fn with_peeringdb(mut self) -> Self {
+        self.load_peeringdb = true;
+        self
+    }
+
+    /// Enable all optional data sources.
+    pub fn with_all(mut self) -> Self {
+        self.load_as2org = true;
+        self.load_population = true;
+        self.load_hegemony = true;
+        self.load_peeringdb = true;
+        self
+    }
+
+    /// Build the AsInfoUtils with the configured data sources.
+    pub fn build(self) -> Result<AsInfoUtils> {
+        AsInfoUtils::new(
+            self.load_as2org,
+            self.load_population,
+            self.load_hegemony,
+            self.load_peeringdb,
+        )
+    }
+}
 
 pub struct AsInfoUtils {
     pub asinfo_map: HashMap<u32, AsInfo>,

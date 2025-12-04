@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### API Improvements
+
+* **AsInfoBuilder**: Added a new builder pattern for loading AS information with specific data sources
+    - New `AsInfoBuilder` struct with fluent API methods: `with_as2org()`, `with_population()`, `with_hegemony()`, `with_peeringdb()`, `with_all()`
+    - Added `asinfo_builder()` method to `BgpkitCommons` for creating builders
+    - Added `load_asinfo_with(builder)` method to `BgpkitCommons` for loading with builder configuration
+    - The existing `load_asinfo(bool, bool, bool, bool)` method is preserved for backward compatibility
+
+**Before (confusing boolean parameters):**
+```rust
+commons.load_asinfo(true, false, true, false)?;
+```
+
+**After (clear builder pattern):**
+```rust
+let builder = commons.asinfo_builder()
+    .with_as2org()
+    .with_hegemony();
+commons.load_asinfo_with(builder)?;
+```
+
+### Public API Enhancements
+
+* **asinfo module**: Added `PeeringdbData` to public exports for direct module access
+* All modules now consistently support both:
+    - Central access via `BgpkitCommons` instance
+    - Direct module access (e.g., `bgpkit_commons::bogons::Bogons::new()`)
+
 ## v0.9.6 - 2025-10-29
 
 ### Maintenance
