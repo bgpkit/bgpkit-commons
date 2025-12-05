@@ -17,24 +17,24 @@ use tracing::info;
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RpkiViewsCollector {
     /// josephine.sobornost.net - A2B Internet (AS51088), Amsterdam, Netherlands
-    Josephine,
-    /// amber.massars.net - Massar (AS57777), Lugano, Switzerland
-    Amber,
-    /// dango.attn.jp - Internet Initiative Japan (AS2497), Tokyo, Japan
-    Dango,
-    /// rpkiviews.kerfuffle.net - Kerfuffle, LLC (AS35008), Fremont, California, United States
     #[default]
-    Kerfuffle,
+    SoborostNet,
+    /// amber.massars.net - Massar (AS57777), Lugano, Switzerland
+    MassarsNet,
+    /// dango.attn.jp - Internet Initiative Japan (AS2497), Tokyo, Japan
+    AttnJp,
+    /// rpkiviews.kerfuffle.net - Kerfuffle, LLC (AS35008), Fremont, California, United States
+    KerfuffleNet,
 }
 
 impl RpkiViewsCollector {
     /// Get the HTTPS base URL for this collector
     pub fn base_url(&self) -> &'static str {
         match self {
-            RpkiViewsCollector::Josephine => "https://josephine.sobornost.net/rpkidata",
-            RpkiViewsCollector::Amber => "https://amber.massars.net/rpkidata",
-            RpkiViewsCollector::Dango => "https://dango.attn.jp/rpkidata",
-            RpkiViewsCollector::Kerfuffle => "https://rpkiviews.kerfuffle.net/rpkidata",
+            RpkiViewsCollector::SoborostNet => "https://josephine.sobornost.net/rpkidata",
+            RpkiViewsCollector::MassarsNet => "https://amber.massars.net/rpkidata",
+            RpkiViewsCollector::AttnJp => "https://dango.attn.jp/rpkidata",
+            RpkiViewsCollector::KerfuffleNet => "https://rpkiviews.kerfuffle.net/rpkidata",
         }
     }
 
@@ -46,10 +46,10 @@ impl RpkiViewsCollector {
     /// Get all available collectors
     pub fn all() -> Vec<RpkiViewsCollector> {
         vec![
-            RpkiViewsCollector::Josephine,
-            RpkiViewsCollector::Amber,
-            RpkiViewsCollector::Dango,
-            RpkiViewsCollector::Kerfuffle,
+            RpkiViewsCollector::SoborostNet,
+            RpkiViewsCollector::MassarsNet,
+            RpkiViewsCollector::AttnJp,
+            RpkiViewsCollector::KerfuffleNet,
         ]
     }
 }
@@ -57,10 +57,10 @@ impl RpkiViewsCollector {
 impl std::fmt::Display for RpkiViewsCollector {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RpkiViewsCollector::Josephine => write!(f, "josephine"),
-            RpkiViewsCollector::Amber => write!(f, "amber"),
-            RpkiViewsCollector::Dango => write!(f, "dango"),
-            RpkiViewsCollector::Kerfuffle => write!(f, "kerfuffle"),
+            RpkiViewsCollector::SoborostNet => write!(f, "sobornost.net"),
+            RpkiViewsCollector::MassarsNet => write!(f, "massars.net"),
+            RpkiViewsCollector::AttnJp => write!(f, "attn.jp"),
+            RpkiViewsCollector::KerfuffleNet => write!(f, "kerfuffle.net"),
         }
     }
 }
@@ -70,10 +70,10 @@ impl FromStr for RpkiViewsCollector {
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "josephine" | "josephine.sobornost.net" => Ok(RpkiViewsCollector::Josephine),
-            "amber" | "amber.massars.net" => Ok(RpkiViewsCollector::Amber),
-            "dango" | "dango.attn.jp" => Ok(RpkiViewsCollector::Dango),
-            "kerfuffle" | "rpkiviews.kerfuffle.net" => Ok(RpkiViewsCollector::Kerfuffle),
+            "sobornost.net" | "josephine.sobornost.net" => Ok(RpkiViewsCollector::SoborostNet),
+            "massars.net" | "amber.massars.net" => Ok(RpkiViewsCollector::MassarsNet),
+            "attn.jp" | "dango.attn.jp" => Ok(RpkiViewsCollector::AttnJp),
+            "kerfuffle.net" | "rpkiviews.kerfuffle.net" => Ok(RpkiViewsCollector::KerfuffleNet),
             _ => Err(format!("unknown RPKIviews collector: {}", s)),
         }
     }
@@ -580,11 +580,11 @@ mod tests {
     #[test]
     fn test_collector_urls() {
         assert_eq!(
-            RpkiViewsCollector::Josephine.base_url(),
+            RpkiViewsCollector::SoborostNet.base_url(),
             "https://josephine.sobornost.net/rpkidata"
         );
         assert_eq!(
-            RpkiViewsCollector::Kerfuffle.index_url(),
+            RpkiViewsCollector::KerfuffleNet.index_url(),
             "https://rpkiviews.kerfuffle.net/rpkidata/index.txt"
         );
     }
@@ -592,25 +592,28 @@ mod tests {
     #[test]
     fn test_collector_from_str() {
         assert_eq!(
-            RpkiViewsCollector::from_str("josephine").unwrap(),
-            RpkiViewsCollector::Josephine
+            RpkiViewsCollector::from_str("sobornost.net").unwrap(),
+            RpkiViewsCollector::SoborostNet
         );
         assert_eq!(
             RpkiViewsCollector::from_str("amber.massars.net").unwrap(),
-            RpkiViewsCollector::Amber
+            RpkiViewsCollector::MassarsNet
         );
     }
 
     #[test]
     fn test_default_collector() {
-        assert_eq!(RpkiViewsCollector::default(), RpkiViewsCollector::Josephine);
+        assert_eq!(
+            RpkiViewsCollector::default(),
+            RpkiViewsCollector::SoborostNet
+        );
     }
 
     #[test]
     #[ignore] // Requires network access
     fn test_list_rpkiviews_files() {
         let date = NaiveDate::from_ymd_opt(2024, 1, 4).unwrap();
-        let files = list_rpkiviews_files(RpkiViewsCollector::Kerfuffle, date).unwrap();
+        let files = list_rpkiviews_files(RpkiViewsCollector::KerfuffleNet, date).unwrap();
         println!("Found {} files for {}", files.len(), date);
         for file in &files {
             println!("  {} ({} bytes)", file.url, file.size.unwrap_or(0));
@@ -623,7 +626,7 @@ mod tests {
     fn test_list_files_in_tgz() {
         // List first 10 files in a remote tgz to verify streaming works
         let date = NaiveDate::from_ymd_opt(2024, 1, 4).unwrap();
-        let files = list_rpkiviews_files(RpkiViewsCollector::Kerfuffle, date).unwrap();
+        let files = list_rpkiviews_files(RpkiViewsCollector::KerfuffleNet, date).unwrap();
         assert!(!files.is_empty());
 
         let tgz_url = &files[0].url;
@@ -643,7 +646,7 @@ mod tests {
     #[ignore] // Requires network access - streams partial archive
     fn test_tgz_contains_file() {
         let date = NaiveDate::from_ymd_opt(2024, 1, 4).unwrap();
-        let files = list_rpkiviews_files(RpkiViewsCollector::Kerfuffle, date).unwrap();
+        let files = list_rpkiviews_files(RpkiViewsCollector::KerfuffleNet, date).unwrap();
         assert!(!files.is_empty());
 
         let tgz_url = &files[0].url;
@@ -658,7 +661,7 @@ mod tests {
     #[ignore] // Requires network access and takes time to download
     fn test_from_rpkiviews() {
         let date = NaiveDate::from_ymd_opt(2024, 1, 4).unwrap();
-        let trie = RpkiTrie::from_rpkiviews(RpkiViewsCollector::Kerfuffle, date).unwrap();
+        let trie = RpkiTrie::from_rpkiviews(RpkiViewsCollector::KerfuffleNet, date).unwrap();
 
         let total_roas: usize = trie.trie.iter().map(|(_, roas)| roas.len()).sum();
         println!("Loaded {} ROAs from RPKIviews", total_roas);

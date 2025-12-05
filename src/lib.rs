@@ -317,7 +317,7 @@ impl BgpkitCommons {
     /// commons.load_rpki_historical(date, HistoricalRpkiSource::Ripe).unwrap();
     ///
     /// // Or load from RPKIviews
-    /// let source = HistoricalRpkiSource::RpkiViews(RpkiViewsCollector::Kerfuffle);
+    /// let source = HistoricalRpkiSource::RpkiViews(RpkiViewsCollector::KerfuffleNet);
     /// commons.load_rpki_historical(date, source).unwrap();
     /// ```
     #[cfg(feature = "rpki")]
@@ -359,7 +359,7 @@ impl BgpkitCommons {
     ///     "https://example.com/rpki-20240104T144128Z.tgz".to_string(),
     /// ];
     /// commons.load_rpki_from_files(&urls, HistoricalRpkiSource::RpkiViews(
-    ///     bgpkit_commons::rpki::RpkiViewsCollector::Kerfuffle
+    ///     bgpkit_commons::rpki::RpkiViewsCollector::KerfuffleNet
     /// ), None).unwrap();
     /// ```
     #[cfg(feature = "rpki")]
@@ -396,7 +396,7 @@ impl BgpkitCommons {
     /// let ripe_files = commons.list_rpki_files(date, HistoricalRpkiSource::Ripe).unwrap();
     ///
     /// // List files from RPKIviews
-    /// let source = HistoricalRpkiSource::RpkiViews(RpkiViewsCollector::Kerfuffle);
+    /// let source = HistoricalRpkiSource::RpkiViews(RpkiViewsCollector::KerfuffleNet);
     /// let rpkiviews_files = commons.list_rpki_files(date, source).unwrap();
     /// ```
     #[cfg(feature = "rpki")]

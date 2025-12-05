@@ -34,8 +34,8 @@ fn main() {
     println!();
 
     // List files from RPKIviews (multiple snapshots per day)
-    println!("RPKIviews files (Kerfuffle collector):");
-    let source = HistoricalRpkiSource::RpkiViews(RpkiViewsCollector::Kerfuffle);
+    println!("RPKIviews files (KerfuffleNet collector):");
+    let source = HistoricalRpkiSource::RpkiViews(RpkiViewsCollector::KerfuffleNet);
     match commons.list_rpki_files(date, source) {
         Ok(files) => {
             println!("  Found {} files for {}", files.len(), date);

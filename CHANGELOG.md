@@ -4,6 +4,54 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### RPKIviews Historical Data Support
+
+* **Added RPKIviews as a historical RPKI data source**: Users can now load historical RPKI data from RPKIviews collectors in addition to RIPE NCC archives
+    - New `RpkiViewsCollector` enum with four collectors: SoborostNet (default), MassarsNet, AttnJp, and KerfuffleNet
+    - Added `RpkiTrie::from_rpkiviews(collector, date)` method for loading from a specific collector
+    - Added `RpkiTrie::from_rpkiviews_file(url, date)` and `from_rpkiviews_files(urls, date)` for loading from specific archive URLs
+    - Added `list_rpkiviews_files(collector, date)` function to discover available archives for a given date
+    - New `HistoricalRpkiSource` enum to explicitly select between RIPE and RPKIviews sources
+
+* **Streaming optimization for .tgz archives**: RPKIviews archives are streamed efficiently without downloading the entire file
+    - `rpki-client.json` is located at position 3-4 in the archive, allowing early termination after ~80MB instead of downloading 300+ MB
+    - New `extract_file_from_tgz(url, target_path)` function for streaming extraction of specific files
+    - New `list_files_in_tgz(url, max_entries)` function for listing archive contents with early termination
+    - New `tgz_contains_file(url, target_path)` function for checking file existence
+    - Uses `reqwest` for HTTP streaming and external `gunzip` for decompression
+    - Test completion time reduced from several minutes to ~8 seconds
+
+* **Unified rpki-client JSON parsing**: Extracted shared parsing logic for rpki-client JSON format
+    - New internal `rpki_client.rs` module with `RpkiClientData` struct and robust deserializers
+    - Handles variations in ASN formats (numeric `12345` vs string `"AS12345"`)
+    - Handles variations in ASPA field names (`customer_asid` vs `customer`)
+    - Handles provider arrays as both numbers and strings
+    - Used by Cloudflare, RIPE historical, and RPKIviews sources
+
+* **Public ROA and ASPA structs**: Added stable public API types
+    - New `Roa` struct with fields: `prefix`, `asn`, `max_length`, `not_before`, `not_after`
+    - New `Aspa` struct with fields: `customer_asn`, `providers`
+    - Internal rpki-client format structs are now `pub(crate)` only
+
+* **Updated RIPE historical to use JSON format**: Changed from CSV to `output.json.xz` for consistency
+    - Requires `xz` feature in oneio (now enabled by default for rpki feature)
+    - Provides richer data including expiry timestamps
+
+* **New BgpkitCommons methods**:
+    - `load_rpki_historical(source, date)` - Load historical RPKI data from specified source
+    - `list_rpki_files(source, date)` - List available RPKI files for a date from specified source
+    - `load_rpki_from_files(urls, date)` - Load and merge RPKI data from multiple file URLs
+
+* **New example**: Added `examples/rpki_historical.rs` demonstrating historical RPKI data loading
+
+* **Updated example**: `examples/list_aspas.rs` now counts ASPA objects for first day of years 2020-2025
+
+### Dependencies
+
+* Added `reqwest` (with blocking feature) for HTTP streaming
+* Added `tar` crate for reading tar archives
+* Enabled `xz` feature in `oneio` for RIPE historical JSON support
+
 ### Crate Consolidation
 
 * **Migrated `as2org-rs` into bgpkit-commons**: The CAIDA AS-to-Organization mapping functionality previously provided by the external `as2org-rs` crate has been fully integrated into the `asinfo` module

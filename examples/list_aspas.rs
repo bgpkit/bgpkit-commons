@@ -5,22 +5,22 @@ fn main() {
     println!("Counting ASPA objects on the first day of each year (2020-2025)");
     println!("{}", "=".repeat(60));
 
-    for year in 2023..=2025 {
+    for year in 2020..=2025 {
         let date = NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
 
-        // // Try RIPE historical first
-        // match RpkiTrie::from_ripe_historical(date) {
-        //     Ok(trie) => {
-        //         println!("{}-01-01: {} ASPAs (from RIPE)", year, trie.aspas.len());
-        //         continue;
-        //     }
-        //     Err(_) => {
-        //         // RIPE failed, try RPKIviews
-        //     }
-        // }
+        // Try RIPE historical first
+        match RpkiTrie::from_ripe_historical(date) {
+            Ok(trie) => {
+                println!("{}-01-01: {} ASPAs (from RIPE)", year, trie.aspas.len());
+                continue;
+            }
+            Err(_) => {
+                // RIPE failed, try RPKIviews
+            }
+        }
 
         // Fallback to RPKIviews
-        match RpkiTrie::from_rpkiviews(RpkiViewsCollector::Dango, date) {
+        match RpkiTrie::from_rpkiviews(RpkiViewsCollector::default(), date) {
             Ok(trie) => {
                 println!(
                     "{}-01-01: {} ASPAs (from RPKIviews)",
@@ -28,8 +28,7 @@ fn main() {
                     trie.aspas.len()
                 );
             }
-            Err(e) => {
-                eprintln!("{e}");
+            Err(_) => {
                 println!("{}-01-01: No data available", year);
             }
         }
