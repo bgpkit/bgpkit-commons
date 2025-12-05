@@ -6,39 +6,39 @@
 //! ## Available Modules
 //!
 //! ### [`asinfo`] - Autonomous System Information (requires `asinfo` feature)
-//! **Load Method**: `load_asinfo(as2org, population, hegemony, peeringdb)` or `load_asinfo_cached()`  
-//! **Access Methods**: `asinfo_get(asn)`, `asinfo_all()`  
-//! **Data Sources**: RIPE NCC, CAIDA as2org, APNIC population, IIJ IHR hegemony, PeeringDB  
+//! **Load Method**: `load_asinfo(as2org, population, hegemony, peeringdb)` or `load_asinfo_cached()`
+//! **Access Methods**: `asinfo_get(asn)`, `asinfo_all()`
+//! **Data Sources**: RIPE NCC, CAIDA as2org, APNIC population, IIJ IHR hegemony, PeeringDB
 //! **Functionality**: AS name resolution, country mapping, organization data, population statistics, hegemony scores
 //!
 //! ### [`as2rel`] - AS Relationship Data (requires `as2rel` feature)
-//! **Load Method**: `load_as2rel()`  
-//! **Access Methods**: `as2rel_lookup(asn1, asn2)`  
-//! **Data Sources**: BGPKIT AS relationship inference  
+//! **Load Method**: `load_as2rel()`
+//! **Access Methods**: `as2rel_lookup(asn1, asn2)`
+//! **Data Sources**: BGPKIT AS relationship inference
 //! **Functionality**: Provider-customer, peer-to-peer, and sibling relationships between ASes
 //!
 //! ### [`bogons`] - Bogon Detection (requires `bogons` feature)
-//! **Load Method**: `load_bogons()`  
-//! **Access Methods**: `bogons_match(input)`, `bogons_match_prefix(prefix)`, `bogons_match_asn(asn)`, `get_bogon_prefixes()`, `get_bogon_asns()`  
-//! **Data Sources**: IANA special registries (IPv4, IPv6, ASN)  
+//! **Load Method**: `load_bogons()`
+//! **Access Methods**: `bogons_match(input)`, `bogons_match_prefix(prefix)`, `bogons_match_asn(asn)`, `get_bogon_prefixes()`, `get_bogon_asns()`
+//! **Data Sources**: IANA special registries (IPv4, IPv6, ASN)
 //! **Functionality**: Detect invalid/reserved IP prefixes and ASNs that shouldn't appear in routing
 //!
 //! ### [`countries`] - Country Information (requires `countries` feature)
-//! **Load Method**: `load_countries()`  
-//! **Access Methods**: `country_by_code(code)`, country lookup by name  
-//! **Data Sources**: GeoNames geographical database  
+//! **Load Method**: `load_countries()`
+//! **Access Methods**: `country_by_code(code)`, country lookup by name
+//! **Data Sources**: GeoNames geographical database
 //! **Functionality**: ISO country code to name mapping and geographical information
 //!
 //! ### [`mrt_collectors`] - MRT Collector Metadata (requires `mrt_collectors` feature)
-//! **Load Methods**: `load_mrt_collectors()`, `load_mrt_collector_peers()`  
-//! **Access Methods**: `mrt_collectors_all()`, `mrt_collector_peers()`, `mrt_collector_peers_full_feed()`  
-//! **Data Sources**: RouteViews and RIPE RIS official APIs  
+//! **Load Methods**: `load_mrt_collectors()`, `load_mrt_collector_peers()`
+//! **Access Methods**: `mrt_collectors_all()`, `mrt_collector_peers()`, `mrt_collector_peers_full_feed()`
+//! **Data Sources**: RouteViews and RIPE RIS official APIs
 //! **Functionality**: BGP collector information, peer details, full-feed vs partial-feed classification
 //!
 //! ### [`rpki`] - RPKI Validation (requires `rpki` feature)
-//! **Load Method**: `load_rpki(optional_date)`  
-//! **Access Methods**: `rpki_validate(prefix, asn)`  
-//! **Data Sources**: RIPE NCC historical data, Cloudflare real-time data  
+//! **Load Method**: `load_rpki(optional_date)`
+//! **Access Methods**: `rpki_validate(prefix, asn)`
+//! **Data Sources**: RIPE NCC historical data, Cloudflare real-time data
 //! **Functionality**: Route Origin Authorization (ROA) validation, supports multiple ROAs per prefix
 //!
 //! ## Quick Start
@@ -92,12 +92,12 @@
 //! ### Module Features
 //! - `asinfo` - AS information with organization and population data
 //! - `as2rel` - AS relationship data
-//! - `bogons` - Bogon prefix and ASN detection  
+//! - `bogons` - Bogon prefix and ASN detection
 //! - `countries` - Country information lookup
 //! - `mrt_collectors` - MRT collector metadata
 //! - `rpki` - RPKI validation functionality
 //!
-//! ### Convenience Features  
+//! ### Convenience Features
 //! - `all` (default) - Enables all modules for backwards compatibility
 //!
 //! ### Minimal Build Example
@@ -283,7 +283,12 @@ impl BgpkitCommons {
         Ok(())
     }
 
-    /// Load RPKI data
+    /// Load RPKI data from Cloudflare (real-time) or historical archives
+    ///
+    /// - If `date_opt` is `None`, loads real-time data from Cloudflare
+    /// - If `date_opt` is `Some(date)`, loads historical data from RIPE NCC by default
+    ///
+    /// For more control over the data source, use `load_rpki_historical()` instead.
     #[cfg(feature = "rpki")]
     pub fn load_rpki(&mut self, date_opt: Option<chrono::NaiveDate>) -> Result<()> {
         if let Some(date) = date_opt {
@@ -292,6 +297,120 @@ impl BgpkitCommons {
             self.rpki_trie = Some(rpki::RpkiTrie::from_cloudflare()?);
         }
         Ok(())
+    }
+
+    /// Load RPKI data from a specific historical data source
+    ///
+    /// This allows you to choose between RIPE NCC and RPKIviews for historical data.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use bgpkit_commons::BgpkitCommons;
+    /// use bgpkit_commons::rpki::{HistoricalRpkiSource, RpkiViewsCollector};
+    /// use chrono::NaiveDate;
+    ///
+    /// let mut commons = BgpkitCommons::new();
+    /// let date = NaiveDate::from_ymd_opt(2024, 1, 4).unwrap();
+    ///
+    /// // Load from RIPE NCC
+    /// commons.load_rpki_historical(date, HistoricalRpkiSource::Ripe).unwrap();
+    ///
+    /// // Or load from RPKIviews
+    /// let source = HistoricalRpkiSource::RpkiViews(RpkiViewsCollector::Kerfuffle);
+    /// commons.load_rpki_historical(date, source).unwrap();
+    /// ```
+    #[cfg(feature = "rpki")]
+    pub fn load_rpki_historical(
+        &mut self,
+        date: chrono::NaiveDate,
+        source: rpki::HistoricalRpkiSource,
+    ) -> Result<()> {
+        match source {
+            rpki::HistoricalRpkiSource::Ripe => {
+                self.rpki_trie = Some(rpki::RpkiTrie::from_ripe_historical(date)?);
+            }
+            rpki::HistoricalRpkiSource::RpkiViews(collector) => {
+                self.rpki_trie = Some(rpki::RpkiTrie::from_rpkiviews(collector, date)?);
+            }
+        }
+        Ok(())
+    }
+
+    /// Load RPKI data from specific file URLs
+    ///
+    /// This allows loading from specific archive files, which is useful when you want
+    /// to process multiple files or use specific timestamps.
+    ///
+    /// # Arguments
+    ///
+    /// * `urls` - A slice of URLs pointing to RPKI data files
+    /// * `source` - The type of data source (RIPE or RPKIviews) - determines how files are parsed
+    /// * `date` - Optional date to associate with the loaded data
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use bgpkit_commons::BgpkitCommons;
+    /// use bgpkit_commons::rpki::HistoricalRpkiSource;
+    ///
+    /// let mut commons = BgpkitCommons::new();
+    /// let urls = vec![
+    ///     "https://example.com/rpki-20240104T144128Z.tgz".to_string(),
+    /// ];
+    /// commons.load_rpki_from_files(&urls, HistoricalRpkiSource::RpkiViews(
+    ///     bgpkit_commons::rpki::RpkiViewsCollector::Kerfuffle
+    /// ), None).unwrap();
+    /// ```
+    #[cfg(feature = "rpki")]
+    pub fn load_rpki_from_files(
+        &mut self,
+        urls: &[String],
+        source: rpki::HistoricalRpkiSource,
+        date: Option<chrono::NaiveDate>,
+    ) -> Result<()> {
+        match source {
+            rpki::HistoricalRpkiSource::Ripe => {
+                self.rpki_trie = Some(rpki::RpkiTrie::from_ripe_files(urls, date)?);
+            }
+            rpki::HistoricalRpkiSource::RpkiViews(_) => {
+                self.rpki_trie = Some(rpki::RpkiTrie::from_rpkiviews_files(urls, date)?);
+            }
+        }
+        Ok(())
+    }
+
+    /// List available RPKI files for a given date from a specific source
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use bgpkit_commons::BgpkitCommons;
+    /// use bgpkit_commons::rpki::{HistoricalRpkiSource, RpkiViewsCollector};
+    /// use chrono::NaiveDate;
+    ///
+    /// let commons = BgpkitCommons::new();
+    /// let date = NaiveDate::from_ymd_opt(2024, 1, 4).unwrap();
+    ///
+    /// // List files from RIPE NCC
+    /// let ripe_files = commons.list_rpki_files(date, HistoricalRpkiSource::Ripe).unwrap();
+    ///
+    /// // List files from RPKIviews
+    /// let source = HistoricalRpkiSource::RpkiViews(RpkiViewsCollector::Kerfuffle);
+    /// let rpkiviews_files = commons.list_rpki_files(date, source).unwrap();
+    /// ```
+    #[cfg(feature = "rpki")]
+    pub fn list_rpki_files(
+        &self,
+        date: chrono::NaiveDate,
+        source: rpki::HistoricalRpkiSource,
+    ) -> Result<Vec<rpki::RpkiFile>> {
+        match source {
+            rpki::HistoricalRpkiSource::Ripe => rpki::list_ripe_files(date),
+            rpki::HistoricalRpkiSource::RpkiViews(collector) => {
+                rpki::list_rpkiviews_files(collector, date)
+            }
+        }
     }
 
     /// Load MRT mrt_collectors data

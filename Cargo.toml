@@ -21,15 +21,17 @@ serde = { version = "1.0", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"], optional = true }
 ipnet = { version = "2.9", features = ["serde"], optional = true }
 ipnet-trie = { version = "0.3.0", optional = true }
-oneio = { version = "0.20.0", optional = true, features = ["json"] }
+oneio = { version = "0.20.0", optional = true, features = ["json", "xz"] }
 regex = { version = "1", optional = true }
 serde_json = { version = "1", optional = true }
 tracing = { version = "0.1", optional = true }
+reqwest = { version = "0.12", optional = true, features = ["blocking"] }
+tar = { version = "0.4", optional = true }
 
 [dev-dependencies]
 tracing-subscriber = "0.3"
 serde_json = "1"
-oneio = { version = "0.20.0", features = ["json"] }
+oneio = { version = "0.20.0", features = ["json", "xz"] }
 
 
 [features]
@@ -41,7 +43,7 @@ as2rel = ["oneio", "serde_json", "tracing"]
 bogons = ["oneio", "ipnet", "regex", "chrono"]
 countries = ["oneio"]
 mrt_collectors = ["oneio", "chrono"]
-rpki = ["oneio", "ipnet", "ipnet-trie", "chrono", "tracing"]
+rpki = ["oneio", "ipnet", "ipnet-trie", "chrono", "tracing", "reqwest", "tar"]
 
 # Convenience feature to enable all modules
 all = ["asinfo", "as2rel", "bogons", "countries", "mrt_collectors", "rpki"]
@@ -57,6 +59,10 @@ required-features = ["mrt_collectors"]
 
 [[example]]
 name = "list_aspas"
+required-features = ["rpki"]
+
+[[example]]
+name = "rpki_historical"
 required-features = ["rpki"]
 
 [lints.clippy]

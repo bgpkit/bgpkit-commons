@@ -79,6 +79,7 @@ pub struct As2orgAsInfo {
 }
 
 /// In-memory accessor for CAIDA's AS-to-Organization dataset.
+#[allow(dead_code)]
 pub struct As2org {
     as_map: HashMap<u32, As2orgJsonAs>,
     org_map: HashMap<String, As2orgJsonOrg>,
@@ -139,11 +140,13 @@ impl As2org {
     }
 
     /// List all available dataset files published by CAIDA with their dates.
+    #[allow(dead_code)]
     pub fn get_all_files_with_dates() -> Result<Vec<(String, NaiveDate)>> {
         get_all_files_with_dates()
     }
 
     /// Returns the URL for the latest AS-to-Organization dataset file.
+    #[allow(dead_code)]
     pub fn get_latest_file_url() -> String {
         format!("{BASE_URL}/latest.as-org2info.jsonl.gz")
     }
@@ -164,6 +167,7 @@ impl As2org {
     }
 
     /// Return all ASNs that belong to the same organization as the given ASN.
+    #[allow(dead_code)]
     pub fn get_siblings(&self, asn: u32) -> Option<Vec<As2orgAsInfo>> {
         let org_id = self.as_to_org.get(&asn)?;
         let org_asns = self.org_to_as.get(org_id)?.to_vec();
@@ -176,6 +180,7 @@ impl As2org {
     }
 
     /// Return `true` if both ASNs belong to the same organization.
+    #[allow(dead_code)]
     pub fn are_siblings(&self, asn1: u32, asn2: u32) -> bool {
         let org1 = match self.as_to_org.get(&asn1) {
             None => return false,
@@ -266,9 +271,8 @@ fn parse_as2org_file(path: &str) -> Result<Vec<As2orgJsonEntry>> {
 
 /// Returns a vector of tuples containing the full URLs of AS2Org data files and their corresponding dates.
 fn get_all_files_with_dates() -> Result<Vec<(String, NaiveDate)>> {
-    let data_link: Regex = Regex::new(r".*(\d{8}\.as-org2info\.jsonl\.gz).*").map_err(|e| {
-        BgpkitCommonsError::Internal(format!("failed to compile regex: {}", e))
-    })?;
+    let data_link: Regex = Regex::new(r".*(\d{8}\.as-org2info\.jsonl\.gz).*")
+        .map_err(|e| BgpkitCommonsError::Internal(format!("failed to compile regex: {}", e)))?;
     let content = oneio::read_to_string(BASE_URL)?;
     let mut res: Vec<(String, NaiveDate)> = data_link
         .captures_iter(content.as_str())
@@ -284,12 +288,12 @@ fn get_all_files_with_dates() -> Result<Vec<(String, NaiveDate)>> {
 
 fn get_most_recent_data() -> Result<String> {
     let files = get_all_files_with_dates()?;
-    let last_file = files
-        .last()
-        .ok_or_else(|| BgpkitCommonsError::data_source_error(
+    let last_file = files.last().ok_or_else(|| {
+        BgpkitCommonsError::data_source_error(
             crate::errors::data_sources::CAIDA,
             "No dataset files found",
-        ))?;
+        )
+    })?;
     Ok(last_file.0.clone())
 }
 

@@ -160,21 +160,25 @@ impl Peeringdb {
     }
 
     /// Get all ASNs in the PeeringDB data
+    #[allow(dead_code)]
     pub fn get_all_asns(&self) -> Vec<u32> {
         self.peeringdb_map.keys().copied().collect()
     }
 
     /// Check if an ASN exists in PeeringDB
+    #[allow(dead_code)]
     pub fn contains(&self, asn: u32) -> bool {
         self.peeringdb_map.contains_key(&asn)
     }
 
     /// Get the number of networks in the database
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.peeringdb_map.len()
     }
 
     /// Check if the database is empty
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.peeringdb_map.is_empty()
     }
@@ -444,7 +448,7 @@ mod tests {
     fn test_peeringdb_get_data_existing() {
         // This test requires PEERINGDB_API_KEY to be set
         let peeringdb = Peeringdb::new().expect("Failed to load PeeringDB");
-        
+
         // Test with Cloudflare
         let data = peeringdb.get_data(13335);
         assert!(data.is_some());
@@ -459,7 +463,7 @@ mod tests {
     fn test_peeringdb_get_data_nonexistent() {
         // This test requires PEERINGDB_API_KEY to be set
         let peeringdb = Peeringdb::new().expect("Failed to load PeeringDB");
-        
+
         // Test with a non-existent ASN
         let data = peeringdb.get_data(999999999);
         assert!(data.is_none());
