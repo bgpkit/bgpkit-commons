@@ -57,6 +57,8 @@
 //! 3. Access the data using the corresponding `xxx_yyy()` methods
 //!
 //! ```rust
+//! # #[cfg(feature = "bogons")]
+//! # fn main() {
 //! use bgpkit_commons::BgpkitCommons;
 //!
 //! let mut commons = BgpkitCommons::new();
@@ -68,11 +70,16 @@
 //! if let Ok(is_bogon) = commons.bogons_match("23456") {
 //!     println!("ASN 23456 is a bogon: {}", is_bogon);
 //! }
+//! # }
+//! # #[cfg(not(feature = "bogons"))]
+//! # fn main() {}
 //! ```
 //!
 //! ### Working with Multiple Modules
 //!
 //! ```rust
+//! # #[cfg(all(feature = "asinfo", feature = "countries"))]
+//! # fn main() {
 //! use bgpkit_commons::BgpkitCommons;
 //!
 //! let mut commons = BgpkitCommons::new();
@@ -85,6 +92,9 @@
 //! if let Ok(Some(asinfo)) = commons.asinfo_get(13335) {
 //!     println!("AS13335: {} ({})", asinfo.name, asinfo.country);
 //! }
+//! # }
+//! # #[cfg(not(all(feature = "asinfo", feature = "countries")))]
+//! # fn main() {}
 //! ```
 //!
 //! ## Feature Flags
@@ -118,12 +128,17 @@
 //! all currently loaded data sources:
 //!
 //! ```rust
+//! # #[cfg(feature = "bogons")]
+//! # fn main() {
 //! # use bgpkit_commons::BgpkitCommons;
 //! let mut commons = BgpkitCommons::new();
 //! commons.load_bogons().unwrap();
 //!
 //! // Later, reload all loaded data
 //! commons.reload().unwrap();
+//! # }
+//! # #[cfg(not(feature = "bogons"))]
+//! # fn main() {}
 //! ```
 
 #![doc(

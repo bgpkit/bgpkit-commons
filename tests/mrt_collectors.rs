@@ -1,3 +1,5 @@
+#![cfg(feature = "mrt_collectors")]
+
 #[test]
 fn test_get_collectors() {
     let mut commons = bgpkit_commons::BgpkitCommons::new();
