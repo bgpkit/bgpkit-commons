@@ -1,6 +1,6 @@
 [package]
 name = "bgpkit-commons"
-version = "0.9.6"
+version = "0.10.0"
 edition = "2024"
 authors = ["Mingwei Zhang <mingwei@bgpkit.com>"]
 readme = "README.md"
