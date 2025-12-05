@@ -43,7 +43,7 @@ as2rel = ["oneio", "serde_json", "tracing"]
 bogons = ["oneio", "ipnet", "regex", "chrono"]
 countries = ["oneio"]
 mrt_collectors = ["oneio", "chrono"]
-rpki = ["oneio", "ipnet", "ipnet-trie", "chrono", "tracing", "reqwest", "tar"]
+rpki = ["oneio", "ipnet", "ipnet-trie", "chrono", "tracing", "reqwest", "tar", "serde_json"]
 
 # Convenience feature to enable all modules
 all = ["asinfo", "as2rel", "bogons", "countries", "mrt_collectors", "rpki"]
