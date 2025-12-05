@@ -2,6 +2,123 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### RPKIviews Historical Data Support
+
+* **Added RPKIviews as a historical RPKI data source**: Users can now load historical RPKI data from RPKIviews collectors in addition to RIPE NCC archives
+    - New `RpkiViewsCollector` enum with four collectors: SoborostNet (default), MassarsNet, AttnJp, and KerfuffleNet
+    - Added `RpkiTrie::from_rpkiviews(collector, date)` method for loading from a specific collector
+    - Added `RpkiTrie::from_rpkiviews_file(url, date)` and `from_rpkiviews_files(urls, date)` for loading from specific archive URLs
+    - Added `list_rpkiviews_files(collector, date)` function to discover available archives for a given date
+    - New `HistoricalRpkiSource` enum to explicitly select between RIPE and RPKIviews sources
+
+* **Streaming optimization for .tgz archives**: RPKIviews archives are streamed efficiently without downloading the entire file
+    - `rpki-client.json` is located at position 3-4 in the archive, allowing early termination after ~80MB instead of downloading 300+ MB
+    - New `extract_file_from_tgz(url, target_path)` function for streaming extraction of specific files
+    - New `list_files_in_tgz(url, max_entries)` function for listing archive contents with early termination
+    - New `tgz_contains_file(url, target_path)` function for checking file existence
+    - Uses `reqwest` for HTTP streaming and external `gunzip` for decompression
+    - Test completion time reduced from several minutes to ~8 seconds
+
+* **Unified rpki-client JSON parsing**: Extracted shared parsing logic for rpki-client JSON format
+    - New internal `rpki_client.rs` module with `RpkiClientData` struct and robust deserializers
+    - Handles variations in ASN formats (numeric `12345` vs string `"AS12345"`)
+    - Handles variations in ASPA field names (`customer_asid` vs `customer`)
+    - Handles provider arrays as both numbers and strings
+    - Used by Cloudflare, RIPE historical, and RPKIviews sources
+
+* **Public ROA and ASPA structs**: Added stable public API types
+    - New `Roa` struct with fields: `prefix`, `asn`, `max_length`, `not_before`, `not_after`
+    - New `Aspa` struct with fields: `customer_asn`, `providers`
+    - Internal rpki-client format structs are now `pub(crate)` only
+
+* **Updated RIPE historical to use JSON format**: Changed from CSV to `output.json.xz` for consistency
+    - Requires `xz` feature in oneio (now enabled by default for rpki feature)
+    - Provides richer data including expiry timestamps
+
+* **New BgpkitCommons methods**:
+    - `load_rpki_historical(source, date)` - Load historical RPKI data from specified source
+    - `list_rpki_files(source, date)` - List available RPKI files for a date from specified source
+    - `load_rpki_from_files(urls, date)` - Load and merge RPKI data from multiple file URLs
+
+* **New example**: Added `examples/rpki_historical.rs` demonstrating historical RPKI data loading
+
+* **Updated example**: `examples/list_aspas.rs` now counts ASPA objects for first day of years 2020-2025
+
+### Dependencies
+
+* Added `reqwest` (with blocking feature) for HTTP streaming
+* Added `tar` crate for reading tar archives
+* Enabled `xz` feature in `oneio` for RIPE historical JSON support
+
+### Crate Consolidation
+
+* **Migrated `as2org-rs` into bgpkit-commons**: The CAIDA AS-to-Organization mapping functionality previously provided by the external `as2org-rs` crate has been fully integrated into the `asinfo` module
+    - New `src/asinfo/as2org.rs` module provides `As2org` struct with `new()`, `get_as_info()`, `get_siblings()`, and `are_siblings()` methods
+    - Removed external `as2org-rs` dependency from Cargo.toml
+    - Single codebase simplifies maintenance and patch application
+
+* **Migrated `peeringdb-rs` into bgpkit-commons**: The PeeringDB API access functionality previously provided by the external `peeringdb-rs` crate has been fully integrated into the `asinfo` module
+    - Updated `src/asinfo/peeringdb.rs` with full PeeringDB API client implementation
+    - Includes `PeeringdbNet` struct and `load_peeringdb_net()` function for direct API access
+    - Removed external `peeringdb-rs` dependency from Cargo.toml
+
+* **Updated feature flags**: The `asinfo` feature now uses `regex` instead of external crate dependencies
+    - Before: `asinfo = ["as2org-rs", "peeringdb-rs", "oneio", "serde_json", "tracing", "chrono"]`
+    - After: `asinfo = ["oneio", "serde_json", "tracing", "chrono", "regex"]`
+
+### API Improvements
+
+* **AsInfoBuilder**: Added a new builder pattern for loading AS information with specific data sources
+    - New `AsInfoBuilder` struct with fluent API methods: `with_as2org()`, `with_population()`, `with_hegemony()`, `with_peeringdb()`, `with_all()`
+    - Added `asinfo_builder()` method to `BgpkitCommons` for creating builders
+    - Added `load_asinfo_with(builder)` method to `BgpkitCommons` for loading with builder configuration
+    - The existing `load_asinfo(bool, bool, bool, bool)` method is preserved for backward compatibility
+
+**Before (confusing boolean parameters):**
+```rust
+commons.load_asinfo(true, false, true, false)?;
+```
+
+**After (clear builder pattern):**
+```rust
+let builder = commons.asinfo_builder()
+    .with_as2org()
+    .with_hegemony();
+commons.load_asinfo_with(builder)?;
+```
+
+### Public API Enhancements
+
+* **asinfo module**: Added `PeeringdbData` to public exports for direct module access
+* All modules now consistently support both:
+    - Central access via `BgpkitCommons` instance
+    - Direct module access (e.g., `bgpkit_commons::bogons::Bogons::new()`)
+
+### Testing Improvements
+
+* **Comprehensive as2org module tests**: Added extensive unit tests for the migrated CAIDA AS-to-Organization functionality
+    - JSON deserialization tests for `As2orgJsonOrg` and `As2orgJsonAs` structures
+    - Tests for optional fields and default values
+    - `As2orgAsInfo` struct creation and serialization round-trip tests
+    - `fix_latin1_misinterpretation` function tests for edge cases
+    - Integration tests (ignored by default) for `As2org::new()`, `get_as_info()`, `get_siblings()`, and `are_siblings()` methods
+
+* **Comprehensive peeringdb module tests**: Added extensive unit tests for the migrated PeeringDB functionality
+    - `PeeringdbData` struct creation, serialization, and deserialization tests
+    - `PeeringdbNet` struct tests with all optional fields
+    - `PeeringdbNetResponse` API response deserialization tests
+    - `Peeringdb` struct tests for `get_data()`, `contains()`, `len()`, `is_empty()`, and `get_all_asns()` methods
+    - Empty database edge case tests
+    - Integration tests (ignored by default) for live API access
+
+* **New Peeringdb helper methods**: Added utility methods to the `Peeringdb` struct for better usability
+    - `len()`: Get the number of networks in the database
+    - `is_empty()`: Check if the database is empty
+    - `contains(asn)`: Check if an ASN exists in PeeringDB
+    - `get_all_asns()`: Get all ASNs in the database
+
 ## v0.9.6 - 2025-10-29
 
 ### Maintenance

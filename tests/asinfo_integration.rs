@@ -1,3 +1,5 @@
+#![cfg(feature = "asinfo")]
+
 /// Integration test for basic AS information retrieval.
 #[test]
 fn test_basic_info() {
