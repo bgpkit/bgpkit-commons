@@ -2,6 +2,13 @@
 //!
 //! RPKIviews provides historical RPKI data from multiple collectors around the world.
 //! See: <https://rpkiviews.org/>
+//!
+//! ## System Requirements
+//!
+//! This module requires the `gunzip` command to be available in the system PATH
+//! for decompressing `.tgz` archives. On most Unix-like systems, this is provided
+//! by the `gzip` package. On macOS, it is available by default. On Windows,
+//! you may need to install it via WSL, Cygwin, or similar tools.
 
 use crate::Result;
 use crate::rpki::rpki_client::RpkiClientData;
@@ -209,7 +216,7 @@ pub fn list_files_in_tgz(url: &str, max_entries: Option<usize>) -> Result<Vec<Tg
         let mut buffer = [0u8; 65536];
         loop {
             // Check if we should stop early
-            if should_stop_writer.load(std::sync::atomic::Ordering::Relaxed) {
+            if should_stop_writer.load(std::sync::atomic::Ordering::SeqCst) {
                 break;
             }
 
@@ -217,7 +224,10 @@ pub fn list_files_in_tgz(url: &str, max_entries: Option<usize>) -> Result<Vec<Tg
                 Ok(0) => break,
                 Ok(n) => n,
                 Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
-                Err(_) => break, // Connection closed or error, stop gracefully
+                Err(e) => {
+                    tracing::debug!("Network read error during tgz streaming: {}", e);
+                    break;
+                }
             };
 
             if gunzip_stdin.write_all(&buffer[..n]).is_err() {
@@ -262,18 +272,17 @@ pub fn list_files_in_tgz(url: &str, max_entries: Option<usize>) -> Result<Vec<Tg
         if let Some(max) = max_entries {
             if entries_list.len() >= max {
                 // Signal writer to stop and break out
-                should_stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                should_stop.store(true, std::sync::atomic::Ordering::SeqCst);
                 break;
             }
         }
     }
 
     // Signal writer to stop (in case we finished iterating)
-    should_stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    should_stop.store(true, std::sync::atomic::Ordering::SeqCst);
 
-    // Don't wait for writer thread - it will terminate when pipe closes
-    // Just detach it
-    drop(writer_thread);
+    // Wait for writer thread to finish to ensure clean shutdown
+    let _ = writer_thread.join();
 
     // Kill gunzip process to clean up
     let _ = gunzip.kill();
@@ -336,7 +345,7 @@ pub fn tgz_contains_file(url: &str, target_path: &str) -> Result<bool> {
         let mut reader = response;
         let mut buffer = [0u8; 65536];
         loop {
-            if should_stop_writer.load(std::sync::atomic::Ordering::Relaxed) {
+            if should_stop_writer.load(std::sync::atomic::Ordering::SeqCst) {
                 break;
             }
 
@@ -344,7 +353,10 @@ pub fn tgz_contains_file(url: &str, target_path: &str) -> Result<bool> {
                 Ok(0) => break,
                 Ok(n) => n,
                 Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
-                Err(_) => break,
+                Err(e) => {
+                    tracing::debug!("Network read error during tgz streaming: {}", e);
+                    break;
+                }
             };
 
             if gunzip_stdin.write_all(&buffer[..n]).is_err() {
@@ -372,14 +384,14 @@ pub fn tgz_contains_file(url: &str, target_path: &str) -> Result<bool> {
 
             if path.ends_with(target_path) || path == target_path {
                 found = true;
-                should_stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                should_stop.store(true, std::sync::atomic::Ordering::SeqCst);
                 break;
             }
         }
     }
 
-    should_stop.store(true, std::sync::atomic::Ordering::Relaxed);
-    drop(writer_thread);
+    should_stop.store(true, std::sync::atomic::Ordering::SeqCst);
+    let _ = writer_thread.join();
     let _ = gunzip.kill();
     let _ = gunzip.wait();
 
@@ -444,7 +456,7 @@ pub fn extract_file_from_tgz(url: &str, target_path: &str) -> Result<String> {
         let mut reader = response;
         let mut buffer = [0u8; 65536];
         loop {
-            if should_stop_writer.load(std::sync::atomic::Ordering::Relaxed) {
+            if should_stop_writer.load(std::sync::atomic::Ordering::SeqCst) {
                 break;
             }
 
@@ -452,7 +464,10 @@ pub fn extract_file_from_tgz(url: &str, target_path: &str) -> Result<String> {
                 Ok(0) => break,
                 Ok(n) => n,
                 Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
-                Err(_) => break,
+                Err(e) => {
+                    tracing::debug!("Network read error during tgz streaming: {}", e);
+                    break;
+                }
             };
 
             if gunzip_stdin.write_all(&buffer[..n]).is_err() {
@@ -494,7 +509,7 @@ pub fn extract_file_from_tgz(url: &str, target_path: &str) -> Result<String> {
                 )
             })?;
             content = Some(file_content);
-            should_stop.store(true, std::sync::atomic::Ordering::Relaxed);
+            should_stop.store(true, std::sync::atomic::Ordering::SeqCst);
             break;
         }
         // Note: if this is not our target file, the tar iterator automatically
@@ -502,8 +517,8 @@ pub fn extract_file_from_tgz(url: &str, target_path: &str) -> Result<String> {
         // so we don't buffer unnecessary data
     }
 
-    should_stop.store(true, std::sync::atomic::Ordering::Relaxed);
-    drop(writer_thread);
+    should_stop.store(true, std::sync::atomic::Ordering::SeqCst);
+    let _ = writer_thread.join();
     let _ = gunzip.kill();
     let _ = gunzip.wait();
 
@@ -528,7 +543,7 @@ impl RpkiTrie {
     /// Load RPKI data from RPKIviews for a specific date.
     ///
     /// This will use the first (earliest) available file for the given date from the specified collector.
-    /// By default, uses the Kerfuffle collector.
+    /// The caller must specify which collector to use. See [`RpkiViewsCollector`] for available options.
     pub fn from_rpkiviews(collector: RpkiViewsCollector, date: NaiveDate) -> Result<Self> {
         let files = list_rpkiviews_files(collector, date)?;
 
@@ -661,7 +676,7 @@ mod tests {
     #[ignore] // Requires network access and takes time to download
     fn test_from_rpkiviews() {
         let date = NaiveDate::from_ymd_opt(2024, 1, 4).unwrap();
-        let trie = RpkiTrie::from_rpkiviews(RpkiViewsCollector::KerfuffleNet, date).unwrap();
+        let trie = RpkiTrie::from_rpkiviews(RpkiViewsCollector::default(), date).unwrap();
 
         let total_roas: usize = trie.trie.iter().map(|(_, roas)| roas.len()).sum();
         println!("Loaded {} ROAs from RPKIviews", total_roas);

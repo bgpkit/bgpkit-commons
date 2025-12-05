@@ -298,6 +298,7 @@ impl Display for RpkiValidation {
 // ============================================================================
 
 /// Type alias for backwards compatibility. Use [`Roa`] instead.
+/// Deprecated since 0.10.0. This alias will be removed in version 0.12.0.
 #[deprecated(since = "0.10.0", note = "Use Roa instead")]
 pub type RoaEntry = Roa;
 
@@ -685,7 +686,7 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_check_expiry() {
+    fn test_validate_check_expiry_with_time_constraints() {
         let mut trie = RpkiTrie::new(None);
 
         // Time references
