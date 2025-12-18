@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.10.1 - 2025-12-17
+
+### Dependency update
+* switch `reqwest` defualt ssl backend to rustls
+
 ## v0.10.0 - 2025-12-05
 
 ### RPKIviews Historical Data Support
