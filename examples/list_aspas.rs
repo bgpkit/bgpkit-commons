@@ -2,10 +2,10 @@ use bgpkit_commons::rpki::{RpkiTrie, RpkiViewsCollector};
 use chrono::NaiveDate;
 
 fn main() {
-    println!("Counting ASPA objects on the first day of each year (2020-2025)");
+    println!("Counting ASPA objects on the first day of each year (2023-2025)");
     println!("{}", "=".repeat(60));
 
-    for year in 2020..=2025 {
+    for year in 2023..=2025 {
         let date = NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
 
         // Try RIPE historical first
