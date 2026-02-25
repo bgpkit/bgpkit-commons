@@ -24,6 +24,9 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    env:
+      PEERINGDB_API_KEY: ${{ secrets.PEERINGDB_API_KEY }}
+
     steps:
       - uses: actions/checkout@v2
 
