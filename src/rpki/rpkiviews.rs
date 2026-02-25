@@ -195,24 +195,16 @@ pub fn list_files_in_tgz(url: &str, max_entries: Option<usize>) -> Result<Vec<Tg
     let should_stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let should_stop_writer = should_stop.clone();
 
-    // Stream the .tgz file using reqwest in a separate thread
+    // Stream the .tgz file using oneio in a separate thread
     let url_owned = url.to_string();
     let writer_thread = std::thread::spawn(move || -> Result<()> {
-        let response = reqwest::blocking::get(&url_owned).map_err(|e| {
+        let mut reader = oneio::get_reader_raw(&url_owned).map_err(|e| {
             crate::BgpkitCommonsError::data_source_error(
                 "RPKIviews",
                 format!("Failed to fetch {}: {}", url_owned, e),
             )
         })?;
 
-        if !response.status().is_success() {
-            return Err(crate::BgpkitCommonsError::data_source_error(
-                "RPKIviews",
-                format!("HTTP error {} for {}", response.status(), url_owned),
-            ));
-        }
-
-        let mut reader = response;
         let mut buffer = [0u8; 65536];
         loop {
             // Check if we should stop early
@@ -328,21 +320,13 @@ pub fn tgz_contains_file(url: &str, target_path: &str) -> Result<bool> {
 
     let url_owned = url.to_string();
     let writer_thread = std::thread::spawn(move || -> Result<()> {
-        let response = reqwest::blocking::get(&url_owned).map_err(|e| {
+        let mut reader = oneio::get_reader_raw(&url_owned).map_err(|e| {
             crate::BgpkitCommonsError::data_source_error(
                 "RPKIviews",
                 format!("Failed to fetch {}: {}", url_owned, e),
             )
         })?;
 
-        if !response.status().is_success() {
-            return Err(crate::BgpkitCommonsError::data_source_error(
-                "RPKIviews",
-                format!("HTTP error {} for {}", response.status(), url_owned),
-            ));
-        }
-
-        let mut reader = response;
         let mut buffer = [0u8; 65536];
         loop {
             if should_stop_writer.load(std::sync::atomic::Ordering::SeqCst) {
@@ -439,21 +423,13 @@ pub fn extract_file_from_tgz(url: &str, target_path: &str) -> Result<String> {
 
     let url_owned = url.to_string();
     let writer_thread = std::thread::spawn(move || -> Result<()> {
-        let response = reqwest::blocking::get(&url_owned).map_err(|e| {
+        let mut reader = oneio::get_reader_raw(&url_owned).map_err(|e| {
             crate::BgpkitCommonsError::data_source_error(
                 "RPKIviews",
                 format!("Failed to fetch {}: {}", url_owned, e),
             )
         })?;
 
-        if !response.status().is_success() {
-            return Err(crate::BgpkitCommonsError::data_source_error(
-                "RPKIviews",
-                format!("HTTP error {} for {}", response.status(), url_owned),
-            ));
-        }
-
-        let mut reader = response;
         let mut buffer = [0u8; 65536];
         loop {
             if should_stop_writer.load(std::sync::atomic::Ordering::SeqCst) {

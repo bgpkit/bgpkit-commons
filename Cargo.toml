@@ -25,7 +25,6 @@ oneio = { version = "0.20.0", optional = true, features = ["json", "xz"] }
 regex = { version = "1", optional = true }
 serde_json = { version = "1", optional = true }
 tracing = { version = "0.1", optional = true }
-reqwest = { version = "0.12", optional = true, default-features = false, features = ["blocking", "rustls-tls-native-roots"] }
 tar = { version = "0.4", optional = true }
 
 [dev-dependencies]
@@ -43,7 +42,7 @@ as2rel = ["oneio", "serde_json", "tracing"]
 bogons = ["oneio", "ipnet", "regex", "chrono"]
 countries = ["oneio"]
 mrt_collectors = ["oneio", "chrono"]
-rpki = ["oneio", "ipnet", "ipnet-trie", "chrono", "tracing", "reqwest", "tar", "serde_json"]
+rpki = ["oneio", "ipnet", "ipnet-trie", "chrono", "tracing", "tar", "serde_json"]
 
 # Convenience feature to enable all modules
 all = ["asinfo", "as2rel", "bogons", "countries", "mrt_collectors", "rpki"]
