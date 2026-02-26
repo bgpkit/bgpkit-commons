@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.10.2 - 2026-02-25
+
+### Bug fixes
+
+* **Fixed RPKI validation bug where max_length exceeded returned Unknown instead of Invalid**
+    - Prefixes covered by an ROA but exceeding the max_length restriction now correctly return `Invalid`
+    - Added `lookup_covering_roas()` helper method to find all covering ROAs without max_length filter
+    - Fixed both `validate()` and `validate_check_expiry()` methods
+    - Added comprehensive tests for the bug scenarios
+
+### Code improvements
+
+* Replaced `reqwest` with `oneio` for RPKIviews file fetching
+    - Simplifies HTTP handling by using the existing `oneio` dependency
+    - Maintains streaming optimization for .tgz archives
+
+### Maintenance
+
+* Fixed test failures related to AS info name matching
+* Updated `list_aspas` example date range to 2023-2025
+
 ## v0.10.1 - 2025-12-17
 
 ### Dependency update
