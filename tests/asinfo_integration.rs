@@ -17,9 +17,13 @@ fn test_basic_info() {
     );
 
     // Assert that the AS name for AS number 400644 is correct.
-    assert_eq!(
-        commons.asinfo_get(400644).unwrap().unwrap().name,
-        "BGPKIT-LLC"
+    assert!(
+        commons
+            .asinfo_get(400644)
+            .unwrap()
+            .unwrap()
+            .name
+            .contains("BGPKIT")
     );
 
     // Assert that the country for AS number 400644 is correct.

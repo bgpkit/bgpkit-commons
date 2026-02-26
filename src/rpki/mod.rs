@@ -420,7 +420,7 @@ impl RpkiTrie {
         }
     }
 
-    /// Lookup all ROAs that match a given prefix, including invalid ones.
+    /// Lookup all ROAs that authorize a given prefix (matching ASN and max_length).
     pub fn lookup_by_prefix(&self, prefix: &IpNet) -> Vec<Roa> {
         let mut all_matches = vec![];
         for (p, roas) in self.trie.matches(prefix) {
@@ -435,6 +435,23 @@ impl RpkiTrie {
         all_matches
     }
 
+    /// Lookup all ROAs that cover a given prefix, regardless of max_length.
+    ///
+    /// This returns all ROAs whose prefix contains the given prefix,
+    /// without filtering by max_length. Used to determine if a prefix
+    /// is covered by RPKI data at all.
+    fn lookup_covering_roas(&self, prefix: &IpNet) -> Vec<Roa> {
+        let mut all_matches = vec![];
+        for (p, roas) in self.trie.matches(prefix) {
+            if p.contains(prefix) {
+                for roa in roas {
+                    all_matches.push(roa.clone());
+                }
+            }
+        }
+        all_matches
+    }
+
     /// Validate a prefix with an ASN.
     ///
     /// Return values:
@@ -442,17 +459,20 @@ impl RpkiTrie {
     /// - `RpkiValidation::Invalid` if the prefix-asn pair is invalid
     /// - `RpkiValidation::Unknown` if the prefix-asn pair is not found in RPKI
     pub fn validate(&self, prefix: &IpNet, asn: u32) -> RpkiValidation {
-        let matches = self.lookup_by_prefix(prefix);
-        if matches.is_empty() {
+        // First check if there are ANY covering ROAs (regardless of max_length)
+        let covering_roas = self.lookup_covering_roas(prefix);
+        if covering_roas.is_empty() {
             return RpkiValidation::Unknown;
         }
 
+        // Now check for valid matches (matching ASN and max_length)
+        let matches = self.lookup_by_prefix(prefix);
         for roa in matches {
             if roa.asn == asn && roa.max_length >= prefix.prefix_len() {
                 return RpkiValidation::Valid;
             }
         }
-        // there are matches but none of them is valid
+        // There are covering ROAs but none authorize this prefix/ASN
         RpkiValidation::Invalid
     }
 
@@ -460,7 +480,7 @@ impl RpkiTrie {
     ///
     /// Return values:
     /// - `RpkiValidation::Valid` if the prefix-asn pair is valid and not expired
-    /// - `RpkiValidation::Invalid` if the prefix-asn pair is invalid (wrong ASN)
+    /// - `RpkiValidation::Invalid` if the prefix-asn pair is invalid (wrong ASN or max_length exceeded)
     /// - `RpkiValidation::Unknown` if the prefix-asn pair is not found in RPKI or all matching ROAs are outside their valid time range
     pub fn validate_check_expiry(
         &self,
@@ -468,8 +488,9 @@ impl RpkiTrie {
         asn: u32,
         check_time: Option<NaiveDateTime>,
     ) -> RpkiValidation {
-        let matches = self.lookup_by_prefix(prefix);
-        if matches.is_empty() {
+        // First check if there are ANY covering ROAs (regardless of max_length)
+        let covering_roas = self.lookup_covering_roas(prefix);
+        if covering_roas.is_empty() {
             return RpkiValidation::Unknown;
         }
 
@@ -477,6 +498,8 @@ impl RpkiTrie {
 
         let mut found_matching_asn = false;
 
+        // Check for valid matches (matching ASN and max_length)
+        let matches = self.lookup_by_prefix(prefix);
         for roa in matches {
             if roa.asn == asn && roa.max_length >= prefix.prefix_len() {
                 found_matching_asn = true;
@@ -515,7 +538,7 @@ impl RpkiTrie {
             return RpkiValidation::Unknown;
         }
 
-        // There are matches but none of them match the ASN
+        // There are covering ROAs but none authorize this prefix/ASN
         RpkiValidation::Invalid
     }
 
@@ -864,5 +887,166 @@ mod tests {
         }
 
         assert!(!files.is_empty(), "Should have found some files");
+    }
+
+    #[test]
+    fn test_validate_max_length_exceeded() {
+        // Test the bug where a prefix covered by an ROA but with max_length exceeded
+        // should return Invalid, not Unknown
+        let mut trie = RpkiTrie::new(None);
+
+        // Insert ROA for /23 with max_length 23 (no more specific allowed)
+        let roa = Roa {
+            prefix: "103.21.244.0/23".parse().unwrap(),
+            asn: 13335, // Cloudflare
+            max_length: 23,
+            rir: Some(Rir::APNIC),
+            not_before: None,
+            not_after: None,
+        };
+        trie.insert_roa(roa);
+
+        // /24 is covered by /23 but max_length is 23, so this should be Invalid
+        let prefix_24: IpNet = "103.21.244.0/24".parse().unwrap();
+
+        // Test with correct ASN - should be Invalid (covered by RPKI but not authorized due to max_length)
+        assert_eq!(
+            trie.validate(&prefix_24, 13335),
+            RpkiValidation::Invalid,
+            "Prefix covered by ROA but max_length exceeded should be Invalid"
+        );
+
+        // Test with wrong ASN - should also be Invalid
+        assert_eq!(
+            trie.validate(&prefix_24, 64496),
+            RpkiValidation::Invalid,
+            "Prefix covered by ROA with wrong ASN should be Invalid"
+        );
+
+        // The /23 itself with correct ASN should be Valid
+        let prefix_23: IpNet = "103.21.244.0/23".parse().unwrap();
+        assert_eq!(
+            trie.validate(&prefix_23, 13335),
+            RpkiValidation::Valid,
+            "Exact prefix match with correct ASN should be Valid"
+        );
+
+        // Completely unrelated prefix should be Unknown
+        let unknown_prefix: IpNet = "10.0.0.0/8".parse().unwrap();
+        assert_eq!(
+            trie.validate(&unknown_prefix, 13335),
+            RpkiValidation::Unknown,
+            "Prefix not covered by any ROA should be Unknown"
+        );
+    }
+
+    #[test]
+    fn test_validate_check_expiry_max_length_exceeded() {
+        // Same test but for validate_check_expiry
+        let mut trie = RpkiTrie::new(None);
+
+        let current_time = DateTime::from_timestamp(1700000000, 0)
+            .map(|dt| dt.naive_utc())
+            .unwrap();
+        let future_time = DateTime::from_timestamp(1800000000, 0)
+            .map(|dt| dt.naive_utc())
+            .unwrap();
+
+        // Insert ROA for /23 with max_length 23
+        let roa = Roa {
+            prefix: "103.21.244.0/23".parse().unwrap(),
+            asn: 13335,
+            max_length: 23,
+            rir: Some(Rir::APNIC),
+            not_before: Some(current_time),
+            not_after: Some(future_time),
+        };
+        trie.insert_roa(roa);
+
+        // /24 is covered by /23 but max_length is 23, so this should be Invalid
+        let prefix_24: IpNet = "103.21.244.0/24".parse().unwrap();
+
+        // Test with correct ASN - should be Invalid
+        assert_eq!(
+            trie.validate_check_expiry(&prefix_24, 13335, Some(current_time)),
+            RpkiValidation::Invalid,
+            "Prefix covered by ROA but max_length exceeded should be Invalid"
+        );
+
+        // Test with wrong ASN - should also be Invalid
+        assert_eq!(
+            trie.validate_check_expiry(&prefix_24, 64496, Some(current_time)),
+            RpkiValidation::Invalid,
+            "Prefix covered by ROA with wrong ASN should be Invalid"
+        );
+
+        // The /23 itself with correct ASN should be Valid
+        let prefix_23: IpNet = "103.21.244.0/23".parse().unwrap();
+        assert_eq!(
+            trie.validate_check_expiry(&prefix_23, 13335, Some(current_time)),
+            RpkiValidation::Valid,
+            "Exact prefix match with correct ASN should be Valid"
+        );
+
+        // Completely unrelated prefix should be Unknown
+        let unknown_prefix: IpNet = "10.0.0.0/8".parse().unwrap();
+        assert_eq!(
+            trie.validate_check_expiry(&unknown_prefix, 13335, Some(current_time)),
+            RpkiValidation::Unknown,
+            "Prefix not covered by any ROA should be Unknown"
+        );
+    }
+
+    #[test]
+    fn test_lookup_covering_roas() {
+        // Test the helper method that finds all covering ROAs
+        let mut trie = RpkiTrie::new(None);
+
+        // Insert ROA for /23 with max_length 23
+        let roa = Roa {
+            prefix: "103.21.244.0/23".parse().unwrap(),
+            asn: 13335,
+            max_length: 23,
+            rir: Some(Rir::APNIC),
+            not_before: None,
+            not_after: None,
+        };
+        trie.insert_roa(roa);
+
+        // Insert another ROA for a different prefix
+        let roa2 = Roa {
+            prefix: "192.0.2.0/24".parse().unwrap(),
+            asn: 64496,
+            max_length: 24,
+            rir: Some(Rir::ARIN),
+            not_before: None,
+            not_after: None,
+        };
+        trie.insert_roa(roa2);
+
+        // lookup_covering_roas should find the /23 ROA for the /24 prefix
+        let prefix_24: IpNet = "103.21.244.0/24".parse().unwrap();
+        let covering = trie.lookup_covering_roas(&prefix_24);
+        assert_eq!(covering.len(), 1, "Should find 1 covering ROA");
+        assert_eq!(covering[0].asn, 13335);
+
+        // lookup_by_prefix should return empty (max_length filter)
+        let matching = trie.lookup_by_prefix(&prefix_24);
+        assert!(
+            matching.is_empty(),
+            "lookup_by_prefix should filter by max_length"
+        );
+
+        // For the exact /23 prefix, both should return the ROA
+        let prefix_23: IpNet = "103.21.244.0/23".parse().unwrap();
+        let covering_exact = trie.lookup_covering_roas(&prefix_23);
+        let matching_exact = trie.lookup_by_prefix(&prefix_23);
+        assert_eq!(covering_exact.len(), 1);
+        assert_eq!(matching_exact.len(), 1);
+
+        // Unrelated prefix should find nothing
+        let unknown_prefix: IpNet = "10.0.0.0/8".parse().unwrap();
+        assert!(trie.lookup_covering_roas(&unknown_prefix).is_empty());
+        assert!(trie.lookup_by_prefix(&unknown_prefix).is_empty());
     }
 }
