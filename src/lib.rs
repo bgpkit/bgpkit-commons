@@ -75,10 +75,10 @@
 //!
 //! ### [`rpki`] — RPKI Validation
 //!
-//! Feature: `rpki` | Sources: Cloudflare (real-time), RIPE NCC historical, RPKIviews historical
+//! Feature: `rpki` | Sources: Cloudflare (real-time), RIPE NCC historical, RPKIviews historical, RPKISPOOL historical
 //!
 //! - Load: `load_rpki(optional_date)`, `load_rpki_historical(date, source)`, `load_rpki_from_files(urls, source, date)`
-//! - Access: `rpki_validate(asn, prefix)`, `rpki_validate_check_expiry(asn, prefix, timestamp)`, `rpki_lookup_by_prefix(prefix)`
+//! - Access: `rpki_validate(asn, prefix)`, `rpki_validate_check_expiry(asn, prefix, timestamp)`, `rpki_lookup_by_prefix(prefix)`, `rpki_lookup_aspa(customer_asn)`
 //! - Route Origin Authorization (ROA) and ASPA validation, supports real-time and historical sources
 //!
 //! ## Examples

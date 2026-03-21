@@ -636,6 +636,27 @@ impl BgpkitCommons {
             .unwrap()
             .validate_check_expiry(&prefix, asn, check_time))
     }
+
+    /// Look up ASPA records for a given customer ASN.
+    ///
+    /// Returns the ASPA record if one exists for the given customer ASN,
+    /// or `None` if no ASPA is registered.
+    pub fn rpki_lookup_aspa(&self, customer_asn: u32) -> Result<Option<Aspa>> {
+        if self.rpki_trie.is_none() {
+            return Err(BgpkitCommonsError::module_not_loaded(
+                modules::RPKI,
+                load_methods::LOAD_RPKI,
+            ));
+        }
+        Ok(self
+            .rpki_trie
+            .as_ref()
+            .unwrap()
+            .aspas
+            .iter()
+            .find(|a| a.customer_asn == customer_asn)
+            .cloned())
+    }
 }
 
 // ============================================================================

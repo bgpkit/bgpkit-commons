@@ -43,4 +43,18 @@ fn main() {
         asn,
         commons.rpki_validate(asn, prefix).unwrap()
     );
+
+    // Look up ASPA for AS400644
+    let customer_asn = 400644;
+    println!("\nASPA for AS{}:", customer_asn);
+    match commons.rpki_lookup_aspa(customer_asn) {
+        Ok(Some(aspa)) => {
+            println!(
+                "  customer AS{} -> providers: {:?}",
+                aspa.customer_asn, aspa.providers
+            );
+        }
+        Ok(None) => println!("  (no ASPA found)"),
+        Err(e) => println!("  Error: {}", e),
+    }
 }
