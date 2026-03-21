@@ -2,11 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
-
-### Feature flags
-
-* Added `bcder` and `zstd` as optional dependencies under the `rpki` feature flag
+## v0.10.3 - 2026-03-21
 
 ### New features
 
@@ -21,6 +17,11 @@ All notable changes to this project will be documented in this file.
 ### Bug fixes
 
 * Fixed typo in `RpkiViewsCollector` enum variant: `SoborostNet` renamed to `SobornostNet`
+
+### Feature flags
+
+* Added `bcder` and `zstd` as optional dependencies under the `rpki` feature flag
+
 
 ### Documentation
 
