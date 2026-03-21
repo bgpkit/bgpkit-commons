@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Bug fixes
+
+* Fixed typo in `RpkiViewsCollector` enum variant: `SoborostNet` renamed to `SobornostNet`
+
+### Documentation
+
+* Rewrote `README.md` independently from `lib.rs` docstrings; README now includes a Mermaid architecture diagram and module summary table
+* Removed `cargo-readme` workflow step and `readme.tpl` template
+* Added `CLAUDE.md` to `.gitignore`
+
 ## v0.10.2 - 2026-02-25
 
 ### Bug fixes
