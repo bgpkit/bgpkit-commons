@@ -223,7 +223,7 @@
 //!
 //! ## What's New in v0.10.0
 //!
-//! - **RPKIviews Historical Data**: Load historical RPKI data from RPKIviews collectors (SoborostNet, MassarsNet, AttnJp, KerfuffleNet) in addition to RIPE NCC archives
+//! - **RPKIviews Historical Data**: Load historical RPKI data from RPKIviews collectors (SobornostNet, MassarsNet, AttnJp, KerfuffleNet) in addition to RIPE NCC archives
 //! - **Crate Consolidation**: `as2org-rs` and `peeringdb-rs` functionality integrated directly into the `asinfo` module
 //! - **AsInfoBuilder**: New builder pattern for ergonomic configuration of AS information data sources
 //! - **Public RPKI Types**: New stable [`Roa`](rpki::Roa) and [`Aspa`](rpki::Aspa) structs for RPKI objects

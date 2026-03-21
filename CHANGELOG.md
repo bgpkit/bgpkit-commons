@@ -33,7 +33,7 @@ All notable changes to this project will be documented in this file.
 ### RPKIviews Historical Data Support
 
 * **Added RPKIviews as a historical RPKI data source**: Users can now load historical RPKI data from RPKIviews collectors in addition to RIPE NCC archives
-    - New `RpkiViewsCollector` enum with four collectors: SoborostNet (default), MassarsNet, AttnJp, and KerfuffleNet
+    - New `RpkiViewsCollector` enum with four collectors: SobornostNet (default), MassarsNet, AttnJp, and KerfuffleNet
     - Added `RpkiTrie::from_rpkiviews(collector, date)` method for loading from a specific collector
     - Added `RpkiTrie::from_rpkiviews_file(url, date)` and `from_rpkiviews_files(urls, date)` for loading from specific archive URLs
     - Added `list_rpkiviews_files(collector, date)` function to discover available archives for a given date
