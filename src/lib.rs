@@ -75,10 +75,10 @@
 //!
 //! ### [`rpki`] — RPKI Validation
 //!
-//! Feature: `rpki` | Sources: Cloudflare (real-time), RIPE NCC historical, RPKIviews historical
+//! Feature: `rpki` | Sources: Cloudflare (real-time), RIPE NCC historical, RPKIviews historical, RPKISPOOL historical
 //!
 //! - Load: `load_rpki(optional_date)`, `load_rpki_historical(date, source)`, `load_rpki_from_files(urls, source, date)`
-//! - Access: `rpki_validate(asn, prefix)`, `rpki_validate_check_expiry(asn, prefix, timestamp)`, `rpki_lookup_by_prefix(prefix)`
+//! - Access: `rpki_validate(asn, prefix)`, `rpki_validate_check_expiry(asn, prefix, timestamp)`, `rpki_lookup_by_prefix(prefix)`, `rpki_lookup_aspa(customer_asn)`
 //! - Route Origin Authorization (ROA) and ASPA validation, supports real-time and historical sources
 //!
 //! ## Examples
@@ -389,6 +389,9 @@ impl BgpkitCommons {
             rpki::HistoricalRpkiSource::RpkiViews(collector) => {
                 self.rpki_trie = Some(rpki::RpkiTrie::from_rpkiviews(collector, date)?);
             }
+            rpki::HistoricalRpkiSource::RpkiSpools(collector) => {
+                self.rpki_trie = Some(rpki::RpkiTrie::from_rpkispools(collector, date)?);
+            }
         }
         Ok(())
     }
@@ -432,6 +435,12 @@ impl BgpkitCommons {
             rpki::HistoricalRpkiSource::RpkiViews(_) => {
                 self.rpki_trie = Some(rpki::RpkiTrie::from_rpkiviews_files(urls, date)?);
             }
+            rpki::HistoricalRpkiSource::RpkiSpools(_) => {
+                // For RPKISPOOL, each URL is a tar.zst archive; load the first one
+                if let Some(url) = urls.first() {
+                    self.rpki_trie = Some(rpki::RpkiTrie::from_rpkispools_url(url, date)?);
+                }
+            }
         }
         Ok(())
     }
@@ -465,6 +474,9 @@ impl BgpkitCommons {
             rpki::HistoricalRpkiSource::Ripe => rpki::list_ripe_files(date),
             rpki::HistoricalRpkiSource::RpkiViews(collector) => {
                 rpki::list_rpkiviews_files(collector, date)
+            }
+            rpki::HistoricalRpkiSource::RpkiSpools(collector) => {
+                rpki::list_rpkispools_files(collector, date)
             }
         }
     }

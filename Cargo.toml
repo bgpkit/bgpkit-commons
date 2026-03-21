@@ -26,6 +26,8 @@ regex = { version = "1", optional = true }
 serde_json = { version = "1", optional = true }
 tracing = { version = "0.1", optional = true }
 tar = { version = "0.4", optional = true }
+zstd = { version = "0.13", optional = true }
+bcder = { version = "0.7", optional = true }
 
 [dev-dependencies]
 tracing-subscriber = "0.3"
@@ -42,7 +44,7 @@ as2rel = ["oneio", "serde_json", "tracing"]
 bogons = ["oneio", "ipnet", "regex", "chrono"]
 countries = ["oneio"]
 mrt_collectors = ["oneio", "chrono"]
-rpki = ["oneio", "ipnet", "ipnet-trie", "chrono", "tracing", "tar", "serde_json"]
+rpki = ["oneio", "ipnet", "ipnet-trie", "chrono", "tracing", "tar", "serde_json", "zstd", "bcder"]
 
 # Convenience feature to enable all modules
 all = ["asinfo", "as2rel", "bogons", "countries", "mrt_collectors", "rpki"]
@@ -62,6 +64,10 @@ required-features = ["rpki"]
 
 [[example]]
 name = "rpki_historical"
+required-features = ["rpki"]
+
+[[example]]
+name = "rpkispools"
 required-features = ["rpki"]
 
 [lints.clippy]

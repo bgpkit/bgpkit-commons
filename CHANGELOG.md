@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Feature flags
+
+* Added `bcder` and `zstd` as optional dependencies under the `rpki` feature flag
+
+### New features
+
+* Added RPKISPOOL data source support ([draft-snijders-rpkispool-format](https://datatracker.ietf.org/doc/draft-snijders-rpkispool-format/))
+    - Parses CCR ([draft-ietf-sidrops-rpki-ccr](https://datatracker.ietf.org/doc/draft-ietf-sidrops-rpki-ccr/)) files from RPKISPOOL `.tar.zst` archives
+    - Uses `bcder` for DER parsing instead of processing ~942K individual `.roa` files
+    - Added `RpkiSpoolsCollector` enum with three mirrors: `SobornostNet`, `AttnJp`, `KerfuffleNet`
+    - Public API: `parse_ccr()`, `parse_rpkispools_archive()`, `RpkiTrie::from_rpkispools()`
+    - Integrated into `BgpkitCommons::load_rpki_historical()`, `load_rpki_from_files()`, `list_rpki_files()`
+    - Added `rpkispools` example
+
 ### Bug fixes
 
 * Fixed typo in `RpkiViewsCollector` enum variant: `SoborostNet` renamed to `SobornostNet`
