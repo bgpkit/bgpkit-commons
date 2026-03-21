@@ -25,7 +25,7 @@ use tracing::info;
 pub enum RpkiViewsCollector {
     /// josephine.sobornost.net - A2B Internet (AS51088), Amsterdam, Netherlands
     #[default]
-    SoborostNet,
+    SobornostNet,
     /// amber.massars.net - Massar (AS57777), Lugano, Switzerland
     MassarsNet,
     /// dango.attn.jp - Internet Initiative Japan (AS2497), Tokyo, Japan
@@ -38,7 +38,7 @@ impl RpkiViewsCollector {
     /// Get the HTTPS base URL for this collector
     pub fn base_url(&self) -> &'static str {
         match self {
-            RpkiViewsCollector::SoborostNet => "https://josephine.sobornost.net/rpkidata",
+            RpkiViewsCollector::SobornostNet => "https://josephine.sobornost.net/rpkidata",
             RpkiViewsCollector::MassarsNet => "https://amber.massars.net/rpkidata",
             RpkiViewsCollector::AttnJp => "https://dango.attn.jp/rpkidata",
             RpkiViewsCollector::KerfuffleNet => "https://rpkiviews.kerfuffle.net/rpkidata",
@@ -53,7 +53,7 @@ impl RpkiViewsCollector {
     /// Get all available collectors
     pub fn all() -> Vec<RpkiViewsCollector> {
         vec![
-            RpkiViewsCollector::SoborostNet,
+            RpkiViewsCollector::SobornostNet,
             RpkiViewsCollector::MassarsNet,
             RpkiViewsCollector::AttnJp,
             RpkiViewsCollector::KerfuffleNet,
@@ -64,7 +64,7 @@ impl RpkiViewsCollector {
 impl std::fmt::Display for RpkiViewsCollector {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RpkiViewsCollector::SoborostNet => write!(f, "sobornost.net"),
+            RpkiViewsCollector::SobornostNet => write!(f, "sobornost.net"),
             RpkiViewsCollector::MassarsNet => write!(f, "massars.net"),
             RpkiViewsCollector::AttnJp => write!(f, "attn.jp"),
             RpkiViewsCollector::KerfuffleNet => write!(f, "kerfuffle.net"),
@@ -77,7 +77,7 @@ impl FromStr for RpkiViewsCollector {
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "sobornost.net" | "josephine.sobornost.net" => Ok(RpkiViewsCollector::SoborostNet),
+            "sobornost.net" | "josephine.sobornost.net" => Ok(RpkiViewsCollector::SobornostNet),
             "massars.net" | "amber.massars.net" => Ok(RpkiViewsCollector::MassarsNet),
             "attn.jp" | "dango.attn.jp" => Ok(RpkiViewsCollector::AttnJp),
             "kerfuffle.net" | "rpkiviews.kerfuffle.net" => Ok(RpkiViewsCollector::KerfuffleNet),
@@ -571,7 +571,7 @@ mod tests {
     #[test]
     fn test_collector_urls() {
         assert_eq!(
-            RpkiViewsCollector::SoborostNet.base_url(),
+            RpkiViewsCollector::SobornostNet.base_url(),
             "https://josephine.sobornost.net/rpkidata"
         );
         assert_eq!(
@@ -584,7 +584,7 @@ mod tests {
     fn test_collector_from_str() {
         assert_eq!(
             RpkiViewsCollector::from_str("sobornost.net").unwrap(),
-            RpkiViewsCollector::SoborostNet
+            RpkiViewsCollector::SobornostNet
         );
         assert_eq!(
             RpkiViewsCollector::from_str("amber.massars.net").unwrap(),
@@ -596,7 +596,7 @@ mod tests {
     fn test_default_collector() {
         assert_eq!(
             RpkiViewsCollector::default(),
-            RpkiViewsCollector::SoborostNet
+            RpkiViewsCollector::SobornostNet
         );
     }
 

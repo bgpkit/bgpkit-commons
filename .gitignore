@@ -8,3 +8,6 @@ as2org.jsonl
 
 .env
 .env.*
+
+# Claude Code
+CLAUDE.md

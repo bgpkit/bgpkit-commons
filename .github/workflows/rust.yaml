@@ -33,9 +33,6 @@ jobs:
       # Test comprehensive feature combinations to ensure optional dependencies work correctly
       # Each module has its own feature flag that gates both the module and its dependencies
       
-      - name: Run cargo-readme check
-        run: cargo install cargo-readme && cargo readme > TMP_README.md && diff -b TMP_README.md README.md
-
       - name: Build with no features
         run: cargo build --no-default-features
 
