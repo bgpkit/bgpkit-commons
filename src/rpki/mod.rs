@@ -136,6 +136,7 @@
 mod cloudflare;
 mod ripe_historical;
 pub(crate) mod rpki_client;
+mod rpkispools;
 mod rpkiviews;
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
@@ -146,6 +147,9 @@ use crate::errors::{load_methods, modules};
 use crate::{BgpkitCommons, BgpkitCommonsError, LazyLoadable, Result};
 pub use ripe_historical::list_ripe_files;
 use rpki_client::RpkiClientData;
+pub use rpkispools::{
+    RpkiSpoolsCollector, RpkiSpoolsData, list_rpkispools_files, parse_ccr, parse_rpkispools_archive,
+};
 pub use rpkiviews::{RpkiViewsCollector, list_rpkiviews_files};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -210,8 +214,10 @@ pub enum HistoricalRpkiSource {
     /// RIPE NCC historical archives (data from all 5 RIRs)
     #[default]
     Ripe,
-    /// RPKIviews collector
+    /// RPKIviews collector (tgz archives with rpki-client JSON)
     RpkiViews(RpkiViewsCollector),
+    /// RPKISPOOL collector (tar.zst archives with CCR files)
+    RpkiSpools(RpkiSpoolsCollector),
 }
 
 impl std::fmt::Display for HistoricalRpkiSource {
@@ -219,6 +225,9 @@ impl std::fmt::Display for HistoricalRpkiSource {
         match self {
             HistoricalRpkiSource::Ripe => write!(f, "RIPE NCC"),
             HistoricalRpkiSource::RpkiViews(collector) => write!(f, "RPKIviews ({})", collector),
+            HistoricalRpkiSource::RpkiSpools(collector) => {
+                write!(f, "RPKISPOOL ({})", collector)
+            }
         }
     }
 }

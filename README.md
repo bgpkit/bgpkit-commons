@@ -27,7 +27,7 @@ graph TD
     M3 -->|bogons_match| A3[IANA registries]
     M4 -->|country_by_code| A4[GeoNames]
     M5 -->|mrt_collectors_all| A5[RouteViews / RIPE RIS]
-    M6 -->|rpki_validate| A6[Cloudflare / RIPE NCC / RPKIviews]
+    M6 -->|rpki_validate| A6[Cloudflare / RIPE NCC / RPKIviews / RPKISPOOL]
 ```
 
 Each module is gated by a feature flag. The `all` feature (default) enables everything.
@@ -42,7 +42,7 @@ Data is fetched on the first `load_xxx()` call and kept in memory until `reload(
 | [`bogons`] | `bogons` | IANA special registries | `bogons_match`, `bogons_match_prefix`, `bogons_match_asn` |
 | [`countries`] | `countries` | GeoNames | `country_by_code`, `country_by_code3`, `country_by_name` |
 | [`mrt_collectors`] | `mrt_collectors` | RouteViews, RIPE RIS | `mrt_collectors_all`, `mrt_collector_peers_all` |
-| [`rpki`] | `rpki` | Cloudflare, RIPE NCC, RPKIviews | `rpki_validate`, `rpki_validate_check_expiry`, `rpki_lookup_by_prefix` |
+| [`rpki`] | `rpki` | Cloudflare, RIPE NCC, RPKIviews, RPKISPOOL | `rpki_validate`, `rpki_validate_check_expiry`, `rpki_lookup_by_prefix` |
 
 ## Quick Start
 
@@ -99,9 +99,16 @@ commons.load_rpki_historical(date, HistoricalRpkiSource::Ripe).unwrap();
 // Or from an RPKIviews collector
 let source = HistoricalRpkiSource::RpkiViews(RpkiViewsCollector::SobornostNet);
 commons.load_rpki_historical(date, source).unwrap();
+
+// Or from RPKISPOOL (CCR format, parses faster)
+use bgpkit_commons::rpki::RpkiSpoolsCollector;
+let source = HistoricalRpkiSource::RpkiSpools(RpkiSpoolsCollector::default());
+commons.load_rpki_historical(date, source).unwrap();
 ```
 
 Available RPKIviews collectors: `SobornostNet` (default), `MassarsNet`, `AttnJp`, `KerfuffleNet`.
+
+Available RPKISPOOL collectors: `SobornostNet` (default), `AttnJp`, `KerfuffleNet`.
 
 ### AS Information with Builder
 
