@@ -70,6 +70,11 @@ pub enum BgpkitCommonsError {
     #[error("OneIO error: {0}")]
     OneIoError(#[from] oneio::OneIoError),
 
+    /// Reqwest errors (HTTP operations)
+    #[cfg(feature = "reqwest")]
+    #[error("HTTP error: {0}")]
+    ReqwestError(#[from] reqwest::Error),
+
     /// Parsing errors (int, float, etc.)
     #[error("Parsing error: {0}")]
     ParseIntError(#[from] std::num::ParseIntError),
