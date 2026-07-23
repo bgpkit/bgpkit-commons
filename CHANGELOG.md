@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### New features
+
+* Added ETag/conditional loading for real-time RPKI data ([#33](https://github.com/bgpkit/bgpkit-commons/issues/33))
+    - New `RpkiTrie::from_cloudflare_conditional(etag, last_modified)` sends `If-None-Match`/`If-Modified-Since`
+      and returns `Ok(None)` on `304 Not Modified`, letting long-running services poll frequently without
+      re-downloading and re-parsing the full ~97 MB payload
+    - New `RpkiLoad` struct bundles the freshly built `RpkiTrie` with the source's `ETag`/`Last-Modified`
+      validators for the next poll (designed for atomic poll-and-swap, e.g. with `arc-swap`)
+    - The Cloudflare fetch path now advertises `Accept-Encoding: gzip` with transparent decompression,
+      reducing transfer size from ~97 MB to ~4.6 MB; this also applies to `RpkiTrie::from_cloudflare()`
+    - New internal `RpkiClientData::from_url_conditional()` with unit tests against a mock HTTP server
+      covering full load, `304 Not Modified`, validator header passthrough, transparent gzip
+      content-encoding, and suffix-based `.gz` decompression (already-gzipped resources still decode
+      exactly once)
+
+### Dependencies
+
+* Bumped `oneio` to 0.24 and enabled its `reqwest-gzip` + `rustls` features for header-aware HTTP
+  requests; conditional loading uses `oneio::reqwest` instead of adding a direct `reqwest` dependency
+
 ## v0.10.3 - 2026-03-21
 
 ### New features

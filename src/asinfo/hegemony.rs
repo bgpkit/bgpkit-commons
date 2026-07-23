@@ -2,6 +2,7 @@ use crate::errors::data_sources;
 use crate::{BgpkitCommonsError, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::io::BufRead;
 use tracing::{debug, info};
 
 const IIJ_IHR_HEGEMONY_IPV4_GLOBAL: &str =
@@ -25,7 +26,8 @@ fn load_hegemony(path: &str) -> Result<Vec<(u32, f64)>> {
     info!("loading hegemony scores from {}", path);
     // load global hegemony scores data CSV file with header where there are two columns: ASN, score
     let mut hegemony = Vec::new();
-    for line in oneio::read_lines(path)? {
+    let reader = oneio::get_reader(path)?;
+    for line in std::io::BufReader::new(reader).lines() {
         let text = line.ok().ok_or_else(|| {
             BgpkitCommonsError::data_source_error(data_sources::IIJ_IHR, "error reading line")
         })?;

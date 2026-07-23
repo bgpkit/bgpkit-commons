@@ -17,6 +17,10 @@
 //! - **Format**: JSON with ROAs, ASPAs, and BGPsec keys
 //! - **Update Frequency**: Real-time
 //! - **Features**: Includes expiry timestamps for temporal validation
+//! - **Conditional loading**: [`RpkiTrie::from_cloudflare_conditional`] supports
+//!   `ETag`/`Last-Modified` validators so frequent pollers receive a cheap
+//!   `304 Not Modified` instead of re-downloading the full payload; responses
+//!   are gzip-compressed on the wire
 //!
 //! ## Historical Data (RIPE NCC)
 //! - **Source**: [RIPE NCC FTP archives](https://ftp.ripe.net/rpki/)
@@ -145,6 +149,7 @@ use ipnet_trie::IpnetTrie;
 
 use crate::errors::{load_methods, modules};
 use crate::{BgpkitCommons, BgpkitCommonsError, LazyLoadable, Result};
+pub use cloudflare::RpkiLoad;
 pub use ripe_historical::list_ripe_files;
 use rpki_client::RpkiClientData;
 pub use rpkispools::{

@@ -11,6 +11,7 @@ use chrono::NaiveDate;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::io::{BufRead, Read};
 
 /// Organization JSON format from CAIDA dataset
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -236,7 +237,8 @@ fn fix_latin1_misinterpretation(input: &str) -> String {
 fn parse_as2org_file(path: &str) -> Result<Vec<As2orgJsonEntry>> {
     let mut res: Vec<As2orgJsonEntry> = vec![];
 
-    for line in oneio::read_lines(path)? {
+    let reader = oneio::get_reader(path)?;
+    for line in std::io::BufReader::new(reader).lines() {
         let line = fix_latin1_misinterpretation(&line?);
         if line.contains(r#""type":"ASN""#) {
             let data = serde_json::from_str::<As2orgJsonAs>(line.as_str());
@@ -273,7 +275,8 @@ fn parse_as2org_file(path: &str) -> Result<Vec<As2orgJsonEntry>> {
 fn get_all_files_with_dates() -> Result<Vec<(String, NaiveDate)>> {
     let data_link: Regex = Regex::new(r".*(\d{8}\.as-org2info\.jsonl\.gz).*")
         .map_err(|e| BgpkitCommonsError::Internal(format!("failed to compile regex: {}", e)))?;
-    let content = oneio::read_to_string(BASE_URL)?;
+    let mut content = String::new();
+    oneio::get_reader(BASE_URL)?.read_to_string(&mut content)?;
     let mut res: Vec<(String, NaiveDate)> = data_link
         .captures_iter(content.as_str())
         .filter_map(|cap| {
