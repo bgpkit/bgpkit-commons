@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## v0.11.0 - 2026-07-23
+
 ### New features
 
 * Added ETag/conditional loading for real-time RPKI data ([#33](https://github.com/bgpkit/bgpkit-commons/issues/33))
