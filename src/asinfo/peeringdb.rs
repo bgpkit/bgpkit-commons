@@ -85,34 +85,22 @@ fn get_peeringdb_reader(url: &str) -> Result<Box<dyn Read + Send>> {
         "".to_string()
     });
 
-    let client = oneio::remote::create_client_with_headers([
-        ("Authorization".to_string(), format!("Api-Key {}", api_key)),
-        (
-            "User-Agent".to_string(),
-            format!("bgpkit-commons/{}", env!("CARGO_PKG_VERSION")),
-        ),
-    ])?;
+    let authorization = format!("Api-Key {}", api_key);
+    let user_agent = format!("bgpkit-commons/{}", env!("CARGO_PKG_VERSION"));
+    let mut client_builder = oneio::OneIo::builder().header_str("User-Agent", &user_agent);
+    // PeeringDB returns 400 Bad Request for an empty `Api-Key` header once
+    // `Accept-Encoding: gzip` is advertised; omit the header when unauthenticated.
+    if !api_key.is_empty() {
+        client_builder = client_builder.header_str("Authorization", &authorization);
+    }
+    let client = client_builder.build()?;
 
-    let res = client
-        .execute(client.get(url).build().map_err(|e| {
-            BgpkitCommonsError::data_source_error(
-                crate::errors::data_sources::PEERINGDB,
-                format!("failed to build request: {}", e),
-            )
-        })?)
-        .map_err(|e| {
-            BgpkitCommonsError::data_source_error(
-                crate::errors::data_sources::PEERINGDB,
-                format!("request failed: {}", e),
-            )
-        })?
-        .error_for_status()
-        .map_err(|e| {
-            BgpkitCommonsError::data_source_error(
-                crate::errors::data_sources::PEERINGDB,
-                format!("API returned error status: {}", e),
-            )
-        })?;
+    let res = client.get_http_reader_raw(url).map_err(|e| {
+        BgpkitCommonsError::data_source_error(
+            crate::errors::data_sources::PEERINGDB,
+            format!("request failed: {}", e),
+        )
+    })?;
 
     Ok(Box::new(res))
 }

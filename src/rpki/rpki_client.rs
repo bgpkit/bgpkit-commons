@@ -289,30 +289,35 @@ impl RpkiClientData {
         etag: Option<&str>,
         last_modified: Option<&str>,
     ) -> crate::Result<Option<RpkiClientFetch>> {
-        let client = reqwest::blocking::Client::new();
-        let mut request = client.get(url);
+        let mut client_builder = oneio::OneIo::builder();
         if let Some(etag) = etag {
-            request = request.header(reqwest::header::IF_NONE_MATCH, etag);
+            client_builder = client_builder.header_str("If-None-Match", etag);
         }
         if let Some(last_modified) = last_modified {
-            request = request.header(reqwest::header::IF_MODIFIED_SINCE, last_modified);
+            client_builder = client_builder.header_str("If-Modified-Since", last_modified);
         }
+        let client = client_builder.build()?;
 
-        let response = request.send()?;
-        if response.status() == reqwest::StatusCode::NOT_MODIFIED {
+        let response = client.get_http_reader_raw(url)?;
+        if response.status() == oneio::reqwest::StatusCode::NOT_MODIFIED {
             return Ok(None);
         }
-        let response = response.error_for_status()?;
+        if !response.status().is_success() {
+            return Err(crate::BgpkitCommonsError::data_source_error(
+                "RPKI",
+                format!("HTTP status {} for {}", response.status(), url),
+            ));
+        }
 
-        let header_str = |name: reqwest::header::HeaderName| {
+        let header_str = |name: oneio::reqwest::header::HeaderName| {
             response
                 .headers()
                 .get(name)
                 .and_then(|v| v.to_str().ok())
                 .map(|s| s.to_string())
         };
-        let etag = header_str(reqwest::header::ETAG);
-        let last_modified = header_str(reqwest::header::LAST_MODIFIED);
+        let etag = header_str(oneio::reqwest::header::ETAG);
+        let last_modified = header_str(oneio::reqwest::header::LAST_MODIFIED);
         let data: RpkiClientData = serde_json::from_reader(response)?;
         Ok(Some(RpkiClientFetch {
             data,
@@ -335,7 +340,7 @@ mod tests {
     /// Spawn a minimal HTTP/1.1 server that answers one canned response per
     /// incoming connection, in order. Returns the server URL and a handle that
     /// yields the raw request texts it received.
-    fn mock_server(responses: Vec<String>) -> (String, std::thread::JoinHandle<Vec<String>>) {
+    fn mock_server(responses: Vec<Vec<u8>>) -> (String, std::thread::JoinHandle<Vec<String>>) {
         use std::io::{Read, Write};
         use std::net::TcpListener;
 
@@ -358,14 +363,14 @@ mod tests {
                     }
                 }
                 requests.push(String::from_utf8_lossy(&buf).to_string());
-                stream.write_all(response.as_bytes()).unwrap();
+                stream.write_all(&response).unwrap();
             }
             requests
         });
         (format!("http://{}", addr), handle)
     }
 
-    fn json_response(body: &str, etag: Option<&str>) -> String {
+    fn json_response(body: &str, etag: Option<&str>) -> Vec<u8> {
         let etag_header = match etag {
             Some(e) => format!(
                 "ETag: {}\r\nLast-Modified: Wed, 01 Jan 2025 00:00:00 GMT\r\n",
@@ -379,6 +384,26 @@ mod tests {
             body.len(),
             body
         )
+        .into_bytes()
+    }
+
+    fn status_response(status: &str) -> Vec<u8> {
+        format!("HTTP/1.1 {status}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").into_bytes()
+    }
+
+    fn gzip_response(body: &[u8], content_encoding: Option<&str>) -> Vec<u8> {
+        let content_encoding_header = match content_encoding {
+            Some(encoding) => format!("Content-Encoding: {}\r\n", encoding),
+            None => String::new(),
+        };
+        let mut response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n{}Content-Length: {}\r\nConnection: close\r\n\r\n",
+            content_encoding_header,
+            body.len()
+        )
+        .into_bytes();
+        response.extend_from_slice(body);
+        response
     }
 
     const TEST_JSON: &str = r#"{
@@ -392,6 +417,18 @@ mod tests {
             }
         ]
     }"#;
+
+    /// Gzip-compressed bytes of `TEST_JSON`, pre-compressed so this test does
+    /// not need an extra compression dev-dependency.
+    const GZIP_TEST_JSON_BODY: [u8; 131] = [
+        31, 139, 8, 0, 0, 0, 0, 0, 2, 255, 171, 230, 82, 128, 2, 165, 162, 252, 196, 98, 37, 43,
+        133, 104, 184, 8, 8, 84, 163, 240, 192, 234, 10, 138, 82, 211, 50, 43, 128, 42, 149, 12,
+        45, 141, 244, 12, 244, 128, 88, 223, 200, 68, 73, 7, 83, 101, 110, 98, 133, 79, 106, 94,
+        122, 73, 6, 80, 177, 145, 9, 22, 5, 137, 197, 121, 64, 41, 51, 19, 19, 75, 51, 44, 178, 37,
+        137, 32, 75, 18, 11, 242, 50, 147, 177, 153, 158, 90, 81, 144, 89, 148, 10, 114, 178, 161,
+        185, 129, 137, 129, 153, 185, 145, 129, 1, 138, 170, 90, 56, 47, 22, 204, 170, 5, 0, 59,
+        57, 129, 253, 237, 0, 0, 0,
+    ];
 
     #[test]
     fn test_from_url_conditional_full_load() {
@@ -419,7 +456,9 @@ mod tests {
     fn test_from_url_conditional_not_modified() {
         let (url, server) = mock_server(vec![
             json_response(TEST_JSON, Some("\"v1\"")),
-            "HTTP/1.1 304 Not Modified\r\nConnection: close\r\n\r\n".to_string(),
+            "HTTP/1.1 304 Not Modified\r\nConnection: close\r\n\r\n"
+                .as_bytes()
+                .to_vec(),
         ]);
 
         let fetch = RpkiClientData::from_url_conditional(&url, None, None)
@@ -439,6 +478,20 @@ mod tests {
     }
 
     #[test]
+    fn test_from_url_conditional_rejects_http_errors() {
+        for status in ["404 Not Found", "500 Internal Server Error"] {
+            let (url, server) = mock_server(vec![status_response(status)]);
+            let error = RpkiClientData::from_url_conditional(&url, None, None).unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains(status.split_once(' ').unwrap().0)
+            );
+            assert_eq!(server.join().unwrap().len(), 1);
+        }
+    }
+
+    #[test]
     fn test_from_url_conditional_sends_last_modified() {
         let (url, server) = mock_server(vec![json_response(TEST_JSON, Some("\"v2\""))]);
 
@@ -454,6 +507,46 @@ mod tests {
                 .to_lowercase()
                 .contains("if-modified-since: wed, 01 jan 2025 00:00:00 gmt"),
             "request should carry If-Modified-Since, got: {}",
+            requests[0]
+        );
+    }
+
+    #[test]
+    fn test_from_url_conditional_transparent_gzip_decode() {
+        let (url, server) = mock_server(vec![gzip_response(&GZIP_TEST_JSON_BODY, Some("gzip"))]);
+
+        let fetch = RpkiClientData::from_url_conditional(&url, None, None)
+            .unwrap()
+            .expect("gzip-encoded unconditional request should return data");
+        assert_eq!(fetch.data.roas.len(), 1);
+        assert_eq!(fetch.data.roas[0].asn, 64496);
+
+        let requests = server.join().unwrap();
+        assert_eq!(requests.len(), 1);
+        assert!(
+            requests[0].to_lowercase().contains("accept-encoding: gzip"),
+            "request should advertise Accept-Encoding: gzip, got: {}",
+            requests[0]
+        );
+    }
+
+    #[test]
+    fn test_from_url_gzipped_suffix_still_decodes_once() {
+        // Already-gzipped resources are normally served without a
+        // `Content-Encoding: gzip` header; oneio's suffix-based `.gz`
+        // decompression must still decode them exactly once.
+        let (base_url, server) = mock_server(vec![gzip_response(&GZIP_TEST_JSON_BODY, None)]);
+        let url = format!("{}/rpki.json.gz", base_url);
+
+        let data = RpkiClientData::from_url(&url).unwrap();
+        assert_eq!(data.roas.len(), 1);
+        assert_eq!(data.roas[0].asn, 64496);
+
+        let requests = server.join().unwrap();
+        assert_eq!(requests.len(), 1);
+        assert!(
+            requests[0].to_lowercase().contains("accept-encoding: gzip"),
+            "request should advertise Accept-Encoding: gzip, got: {}",
             requests[0]
         );
     }

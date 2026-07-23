@@ -2,6 +2,7 @@ use crate::bogons::utils::{find_rfc_links, remove_footnotes, replace_commas_in_q
 use crate::errors::data_sources;
 use crate::{BgpkitCommonsError, Result};
 use serde::{Deserialize, Serialize};
+use std::io::BufRead;
 
 const IANA_ASN_SPECIAL_REGISTRY: &str = "https://www.iana.org/assignments/iana-as-numbers-special-registry/special-purpose-as-numbers.csv";
 
@@ -32,7 +33,8 @@ fn convert_to_range(s: &str) -> Result<(u32, u32)> {
 pub fn load_bogon_asns() -> Result<Vec<BogonAsn>> {
     let mut bogons = Vec::new();
     let mut prev_line: Option<String> = None;
-    for line in oneio::read_lines(IANA_ASN_SPECIAL_REGISTRY)? {
+    let reader = oneio::get_reader(IANA_ASN_SPECIAL_REGISTRY)?;
+    for line in std::io::BufReader::new(reader).lines() {
         let mut text = line.ok().ok_or_else(|| {
             BgpkitCommonsError::data_source_error(data_sources::IANA, "error reading line")
         })?;

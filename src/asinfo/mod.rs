@@ -122,6 +122,7 @@ use crate::{BgpkitCommons, BgpkitCommonsError, LazyLoadable, Result};
 use serde::{Deserialize, Serialize};
 use sibling_orgs::SiblingOrgsUtils;
 use std::collections::HashMap;
+use std::io::{BufRead, Read};
 use tracing::info;
 
 pub use hegemony::HegemonyData;
@@ -327,7 +328,8 @@ impl LazyLoadable for AsInfoUtils {
 pub fn get_asinfo_map_cached() -> Result<HashMap<u32, AsInfo>> {
     info!("loading asinfo from previously generated BGPKIT cache file...");
     let mut asnames_map = HashMap::new();
-    for line in oneio::read_lines(BGPKIT_ASNINFO_URL)? {
+    let reader = oneio::get_reader(BGPKIT_ASNINFO_URL)?;
+    for line in std::io::BufReader::new(reader).lines() {
         let line = line?;
         if line.trim().is_empty() {
             continue;
@@ -345,9 +347,14 @@ pub fn get_asinfo_map(
     load_peeringdb: bool,
 ) -> Result<HashMap<u32, AsInfo>> {
     info!("loading asinfo from RIPE NCC...");
-    let text = match oneio::read_to_string(BGPKIT_ASN_TXT_MIRROR_URL) {
+    let read_text = |url: &str| -> Result<String> {
+        let mut text = String::new();
+        oneio::get_reader(url)?.read_to_string(&mut text)?;
+        Ok(text)
+    };
+    let text = match read_text(BGPKIT_ASN_TXT_MIRROR_URL) {
         Ok(t) => t,
-        Err(_) => match oneio::read_to_string(RIPE_RIS_ASN_TXT_URL) {
+        Err(_) => match read_text(RIPE_RIS_ASN_TXT_URL) {
             Ok(t) => t,
             Err(e) => {
                 return Err(BgpkitCommonsError::data_source_error(

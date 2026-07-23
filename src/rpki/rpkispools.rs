@@ -442,12 +442,14 @@ fn parse_aspa_payload_state<S: bcder::decode::Source>(
 pub fn parse_rpkispools_archive(url: &str) -> Result<RpkiSpoolsData> {
     info!("streaming RPKISPOOL archive: {}", url);
 
-    let reader = oneio::get_reader_raw(url).map_err(|e| {
-        crate::BgpkitCommonsError::data_source_error(
-            "RPKISPOOL",
-            format!("Failed to fetch {}: {}", url, e),
-        )
-    })?;
+    let reader = oneio::OneIo::new()
+        .and_then(|client| client.get_reader_raw(url))
+        .map_err(|e| {
+            crate::BgpkitCommonsError::data_source_error(
+                "RPKISPOOL",
+                format!("Failed to fetch {}: {}", url, e),
+            )
+        })?;
 
     // Decompress zstd stream
     let decoder = zstd::Decoder::new(reader).map_err(|e| {

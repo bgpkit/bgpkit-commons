@@ -1,6 +1,7 @@
 use crate::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::io::BufRead;
 use tracing::info;
 
 const BGPKIT_SIBLING_ORGS_URL: &str = "https://data.bgpkit.com/commons/sibling-orgs.txt";
@@ -17,7 +18,8 @@ impl SiblingOrgsUtils {
             BGPKIT_SIBLING_ORGS_URL
         );
         let mut sibling_orgs = vec![];
-        for line in oneio::read_lines(BGPKIT_SIBLING_ORGS_URL)? {
+        let reader = oneio::get_reader(BGPKIT_SIBLING_ORGS_URL)?;
+        for line in std::io::BufReader::new(reader).lines() {
             let line_str = line?.trim().to_string();
             if line_str.is_empty() || line_str.starts_with('#') {
                 // skip empty line or line started with #

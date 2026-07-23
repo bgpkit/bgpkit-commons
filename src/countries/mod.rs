@@ -23,6 +23,7 @@ use crate::errors::{data_sources, load_methods, modules};
 use crate::{BgpkitCommons, BgpkitCommonsError, LazyLoadable, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::io::BufRead;
 
 /// Country data structure
 ///
@@ -55,7 +56,8 @@ const DATA_URL: &str = "https://download.geonames.org/export/dump/countryInfo.tx
 impl Countries {
     pub fn new() -> Result<Self> {
         let mut countries: Vec<Country> = vec![];
-        for line in oneio::read_lines(DATA_URL)? {
+        let reader = oneio::get_reader(DATA_URL)?;
+        for line in std::io::BufReader::new(reader).lines() {
             let text = line.ok().ok_or_else(|| {
                 BgpkitCommonsError::data_source_error(data_sources::GEONAMES, "error reading line")
             })?;

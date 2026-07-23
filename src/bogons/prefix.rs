@@ -4,6 +4,7 @@ use crate::{BgpkitCommonsError, Result};
 use chrono::NaiveDate;
 use ipnet::IpNet;
 use serde::{Deserialize, Serialize};
+use std::io::BufRead;
 
 const IANA_PREFIX_SPECIAL_REGISTRY: [&str; 2] = [
     "https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry-1.csv",
@@ -39,7 +40,8 @@ pub fn load_bogon_prefixes() -> Result<Vec<BogonPrefix>> {
     let mut bogons = Vec::new();
     for iana_link in IANA_PREFIX_SPECIAL_REGISTRY {
         let mut prev_line: Option<String> = None;
-        for line in oneio::read_lines(iana_link)? {
+        let reader = oneio::get_reader(iana_link)?;
+        for line in std::io::BufReader::new(reader).lines() {
             let mut text = line.ok().ok_or_else(|| {
                 BgpkitCommonsError::data_source_error(data_sources::IANA, "error reading line")
             })?;

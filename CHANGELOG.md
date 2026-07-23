@@ -15,12 +15,14 @@ All notable changes to this project will be documented in this file.
     - The Cloudflare fetch path now advertises `Accept-Encoding: gzip` with transparent decompression,
       reducing transfer size from ~97 MB to ~4.6 MB; this also applies to `RpkiTrie::from_cloudflare()`
     - New internal `RpkiClientData::from_url_conditional()` with unit tests against a mock HTTP server
-      covering full load, `304 Not Modified`, and validator header passthrough
+      covering full load, `304 Not Modified`, validator header passthrough, transparent gzip
+      content-encoding, and suffix-based `.gz` decompression (already-gzipped resources still decode
+      exactly once)
 
 ### Dependencies
 
-* Added optional `reqwest` dependency (blocking, gzip, rustls) under the `rpki` feature flag for
-  header-aware HTTP requests; `oneio` remains in use for compression-by-extension sources
+* Bumped `oneio` to 0.24 and enabled its `reqwest-gzip` + `rustls` features for header-aware HTTP
+  requests; conditional loading uses `oneio::reqwest` instead of adding a direct `reqwest` dependency
 
 ## v0.10.3 - 2026-03-21
 

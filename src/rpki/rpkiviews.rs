@@ -15,7 +15,7 @@ use crate::rpki::rpki_client::RpkiClientData;
 use crate::rpki::{RpkiFile, RpkiTrie};
 use chrono::{DateTime, Datelike, NaiveDate};
 use serde::{Deserialize, Serialize};
-use std::io::{Read, Write};
+use std::io::{BufRead, Read, Write};
 use std::process::{Command, Stdio};
 use std::str::FromStr;
 use tracing::info;
@@ -103,7 +103,8 @@ pub fn list_rpkiviews_files(
 
     let mut files = vec![];
 
-    for line in oneio::read_lines(&index_url)? {
+    let reader = oneio::get_reader(&index_url)?;
+    for line in std::io::BufReader::new(reader).lines() {
         let line = line?;
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() < 3 {
@@ -198,12 +199,14 @@ pub fn list_files_in_tgz(url: &str, max_entries: Option<usize>) -> Result<Vec<Tg
     // Stream the .tgz file using oneio in a separate thread
     let url_owned = url.to_string();
     let writer_thread = std::thread::spawn(move || -> Result<()> {
-        let mut reader = oneio::get_reader_raw(&url_owned).map_err(|e| {
-            crate::BgpkitCommonsError::data_source_error(
-                "RPKIviews",
-                format!("Failed to fetch {}: {}", url_owned, e),
-            )
-        })?;
+        let mut reader = oneio::OneIo::new()
+            .and_then(|client| client.get_reader_raw(&url_owned))
+            .map_err(|e| {
+                crate::BgpkitCommonsError::data_source_error(
+                    "RPKIviews",
+                    format!("Failed to fetch {}: {}", url_owned, e),
+                )
+            })?;
 
         let mut buffer = [0u8; 65536];
         loop {
@@ -320,12 +323,14 @@ pub fn tgz_contains_file(url: &str, target_path: &str) -> Result<bool> {
 
     let url_owned = url.to_string();
     let writer_thread = std::thread::spawn(move || -> Result<()> {
-        let mut reader = oneio::get_reader_raw(&url_owned).map_err(|e| {
-            crate::BgpkitCommonsError::data_source_error(
-                "RPKIviews",
-                format!("Failed to fetch {}: {}", url_owned, e),
-            )
-        })?;
+        let mut reader = oneio::OneIo::new()
+            .and_then(|client| client.get_reader_raw(&url_owned))
+            .map_err(|e| {
+                crate::BgpkitCommonsError::data_source_error(
+                    "RPKIviews",
+                    format!("Failed to fetch {}: {}", url_owned, e),
+                )
+            })?;
 
         let mut buffer = [0u8; 65536];
         loop {
@@ -423,12 +428,14 @@ pub fn extract_file_from_tgz(url: &str, target_path: &str) -> Result<String> {
 
     let url_owned = url.to_string();
     let writer_thread = std::thread::spawn(move || -> Result<()> {
-        let mut reader = oneio::get_reader_raw(&url_owned).map_err(|e| {
-            crate::BgpkitCommonsError::data_source_error(
-                "RPKIviews",
-                format!("Failed to fetch {}: {}", url_owned, e),
-            )
-        })?;
+        let mut reader = oneio::OneIo::new()
+            .and_then(|client| client.get_reader_raw(&url_owned))
+            .map_err(|e| {
+                crate::BgpkitCommonsError::data_source_error(
+                    "RPKIviews",
+                    format!("Failed to fetch {}: {}", url_owned, e),
+                )
+            })?;
 
         let mut buffer = [0u8; 65536];
         loop {
