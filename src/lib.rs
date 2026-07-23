@@ -78,8 +78,13 @@
 //! Feature: `rpki` | Sources: Cloudflare (real-time), RIPE NCC historical, RPKIviews historical, RPKISPOOL historical
 //!
 //! - Load: `load_rpki(optional_date)`, `load_rpki_historical(date, source)`, `load_rpki_from_files(urls, source, date)`
+//! - Poll: `RpkiTrie::from_cloudflare_conditional(etag, last_modified)` returns `Ok(None)` on `304 Not Modified`
 //! - Access: `rpki_validate(asn, prefix)`, `rpki_validate_check_expiry(asn, prefix, timestamp)`, `rpki_lookup_by_prefix(prefix)`, `rpki_lookup_aspa(customer_asn)`
 //! - Route Origin Authorization (ROA) and ASPA validation, supports real-time and historical sources
+//! - Poll current Cloudflare data with `RpkiTrie::from_cloudflare_conditional`, retaining the returned
+//!   [`rpki::RpkiLoad`] validators and keeping the existing trie when the result is `Ok(None)`.
+//! - `BgpkitCommons::reload()` performs a full reload; it does not use validators or provide an atomic
+//!   poll-and-swap operation.
 //!
 //! ## Examples
 //!
@@ -404,7 +409,7 @@ impl BgpkitCommons {
     /// # Arguments
     ///
     /// * `urls` - A slice of URLs pointing to RPKI data files
-    /// * `source` - The type of data source (RIPE or RPKIviews) - determines how files are parsed
+    /// * `source` - The type of data source (RIPE, RPKIviews, or RPKISPOOL) - determines how files are parsed
     /// * `date` - Optional date to associate with the loaded data
     ///
     /// # Example

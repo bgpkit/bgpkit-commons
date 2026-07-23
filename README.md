@@ -32,6 +32,8 @@ graph TD
 
 Each module is gated by a feature flag. The `all` feature (default) enables everything.
 Data is fetched on the first `load_xxx()` call and kept in memory until `reload()` is called.
+The Cloudflare RPKI module also exposes a validator-aware polling API for avoiding full
+re-downloads when the source has not changed; see [Conditional RPKI loading](#conditional-rpki-loading).
 
 ## Modules
 
@@ -43,6 +45,18 @@ Data is fetched on the first `load_xxx()` call and kept in memory until `reload(
 | [`countries`] | `countries` | GeoNames | `country_by_code`, `country_by_code3`, `country_by_name` |
 | [`mrt_collectors`] | `mrt_collectors` | RouteViews, RIPE RIS | `mrt_collectors_all`, `mrt_collector_peers_all` |
 | [`rpki`] | `rpki` | Cloudflare, RIPE NCC, RPKIviews, RPKISPOOL | `rpki_validate`, `rpki_validate_check_expiry`, `rpki_lookup_by_prefix` |
+
+### RPKI data sources
+
+| Source | Data and scope | Wire/file compression | Main entry points |
+|--------|----------------|-----------------------|-------------------|
+| Cloudflare | Current aggregate ROA, ASPA, and BGPsec data | HTTP `Content-Encoding: gzip` | `RpkiTrie::from_cloudflare`, `RpkiTrie::from_cloudflare_conditional` |
+| RIPE NCC | Historical data from all five RIRs | `output.json.xz` | `RpkiTrie::from_ripe_historical`, `list_ripe_files` |
+| RPKIviews | Historical collector-specific snapshots | `.tgz` (gzip-compressed tar) | `RpkiTrie::from_rpkiviews`, `list_rpkiviews_files` |
+| RPKISPOOL | Historical CCR snapshots from a collector | `.tar.zst` | `RpkiTrie::from_rpkispools`, `parse_rpkispools_archive` |
+
+Collector-specific sources represent the selected collector's vantage point and snapshot;
+they should not be interpreted as a complete global view by themselves.
 
 ## Quick Start
 
@@ -82,6 +96,32 @@ commons.load_rpki(None).unwrap(); // None = real-time from Cloudflare
 let result = commons.rpki_validate(13335, "1.1.1.0/24").unwrap();
 println!("Validation result: {:?}", result);
 ```
+
+### Conditional RPKI loading
+
+For a long-running service that polls Cloudflare repeatedly, retain the validators from the
+previous successful load. A matching validator produces `Ok(None)` from the next request, so
+the large JSON payload is not downloaded or parsed again:
+
+```rust,no_run
+use bgpkit_commons::rpki::RpkiTrie;
+
+let mut etag = None;
+let mut last_modified = None;
+
+if let Some(load) = RpkiTrie::from_cloudflare_conditional(
+    etag.as_deref(),
+    last_modified.as_deref(),
+)? {
+    etag = load.etag.clone();
+    last_modified = load.last_modified.clone();
+    // Swap `load.trie` into the serving process after the complete rebuild.
+} // `None` means HTTP 304: keep the currently served trie.
+# Ok::<(), bgpkit_commons::BgpkitCommonsError>(())
+```
+
+`BgpkitCommons::reload()` is not validator-aware: it performs a regular full reload. Use the
+direct `RpkiTrie` conditional API when polling needs ETag/Last-Modified reuse.
 
 ### Historical RPKI Data
 
@@ -156,6 +196,24 @@ For a minimal build:
 [dependencies]
 bgpkit-commons = { version = "0.10", default-features = false, features = ["bogons", "rpki"] }
 ```
+
+Examples requiring a particular module are feature-gated in `Cargo.toml`. For example:
+
+```bash
+cargo run --example rpki_historical --features rpki
+cargo run --example rpkispools --features rpki
+cargo run --example as2org --features asinfo,countries
+```
+
+## Operational notes
+
+- Loading data requires network access; sources are fetched lazily when their load method is called.
+- The Cloudflare RPKI payload is large in memory even when HTTP gzip substantially reduces transfer size.
+- `.gz`, `.xz`, and `.bz2` URL suffixes are decompressed by oneio. RPKIviews `.tgz` archives are
+  streamed and require the `gunzip` executable to be available in `PATH`.
+- PeeringDB loading can use `PEERINGDB_API_KEY`; when unset, the client sends no empty API-key header.
+- `reload()` replaces already-loaded module data by fetching it again. It does not provide an
+  atomic swap or conditional HTTP polling for the RPKI module.
 
 ## License
 

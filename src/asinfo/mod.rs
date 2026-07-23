@@ -147,7 +147,8 @@ impl AsInfo {
     /// 1. `peeringdb.name` if available
     /// 2. `as2org.org_name` if available and not empty
     /// 3. The default `name` field
-    /// ```
+    ///
+    /// This method does not perform any network access.
     pub fn get_preferred_name(&self) -> String {
         if let Some(peeringdb_data) = &self.peeringdb {
             if let Some(name) = &peeringdb_data.name {

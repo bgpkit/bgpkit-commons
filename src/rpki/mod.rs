@@ -1,7 +1,7 @@
 //! RPKI (Resource Public Key Infrastructure) validation and data structures.
 //!
 //! This module provides functionality for loading and validating RPKI data from multiple sources,
-//! including real-time data from Cloudflare and historical data from RIPE NCC or RPKIviews.
+//! including real-time data from Cloudflare and historical data from RIPE NCC, RPKIviews, or RPKISPOOL.
 //!
 //! # Overview
 //!
@@ -38,12 +38,17 @@
 //! - **Source**: [RPKIviews](https://rpkiviews.org/)
 //! - **Format**: Compressed tarballs (.tgz) containing rpki-client.json
 //! - **Use Case**: Historical analysis from multiple vantage points
-//! - **Default Collector**: Kerfuffle (rpkiviews.kerfuffle.net)
+//! - **Default Collector**: SobornostNet (josephine.sobornost.net)
 //! - **Collectors**:
 //!     - Josephine: A2B Internet (AS51088), Amsterdam, Netherlands
 //!     - Amber: Massar (AS57777), Lugano, Switzerland
 //!     - Dango: Internet Initiative Japan (AS2497), Tokyo, Japan
 //!     - Kerfuffle: Kerfuffle, LLC (AS35008), Fremont, California, United States
+//!
+//! ## Historical Data (RPKISPOOL)
+//! - **Format**: `.tar.zst` archives containing CCR (Canonical Cache Representation) files
+//! - **Use Case**: Efficient historical ROA/ASPA snapshots from collector-specific mirrors
+//! - **Collectors**: SobornostNet, AttnJp, and KerfuffleNet
 //!
 //! # Core Data Structures
 //!
@@ -110,7 +115,7 @@
 //! // Load from RIPE NCC
 //! commons.load_rpki_historical(date, HistoricalRpkiSource::Ripe)?;
 //!
-//! // Or load from RPKIviews (uses Kerfuffle collector by default)
+//! // Or load from RPKIviews (uses the SobornostNet collector by default)
 //! let source = HistoricalRpkiSource::RpkiViews(RpkiViewsCollector::default());
 //! commons.load_rpki_historical(date, source)?;
 //! # Ok(())

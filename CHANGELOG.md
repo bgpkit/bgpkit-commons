@@ -24,6 +24,11 @@ All notable changes to this project will be documented in this file.
 * Bumped `oneio` to 0.24 and enabled its `reqwest-gzip` + `rustls` features for header-aware HTTP
   requests; conditional loading uses `oneio::reqwest` instead of adding a direct `reqwest` dependency
 
+### Documentation
+
+* Documented validator-aware Cloudflare polling, `RpkiLoad` poll-and-swap usage, RPKI source scope,
+  compression behavior, collector defaults, feature-gated examples, and operational requirements.
+
 ## v0.10.3 - 2026-03-21
 
 ### New features
