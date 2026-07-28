@@ -1,7 +1,7 @@
 # BGPKIT-Commons Knowledge Base
 
-**Generated:** 2026-02-25  
-**Commit:** 575fe13  
+**Generated:** 2026-07-28  
+**Commit:** 007e9e5  
 **Branch:** main
 
 ## Overview
@@ -20,6 +20,7 @@ BGPKIT-Commons is a Rust library for common BGP-related data and functions with 
 │   ├── bogons/             # Bogon detection (reserved IPs/ASNs)
 │   ├── countries/          # Country code mappings
 │   ├── mrt_collectors/     # BGP collector metadata
+│   ├── peeringdb/          # PeeringDB API data (all 12 endpoints)
 │   └── rpki/               # RPKI validation (ROA/ASPA)
 ├── examples/               # Feature-gated usage examples
 └── tests/                  # Integration tests
@@ -31,6 +32,7 @@ BGPKIT-Commons is a Rust library for common BGP-related data and functions with 
 |------|----------|-------|
 | Add AS info data source | `src/asinfo/` | See `mod.rs` for builder pattern |
 | Add RPKI data source | `src/rpki/` | Implements `from_rpki_client_data` |
+| PeeringDB endpoints | `src/peeringdb/` | `tables.rs` for structs, `client.rs` for HTTP |
 | Update error messages | `src/errors.rs` | Use constant modules for consistency |
 | Add example | `examples/` | Add required-features in Cargo.toml |
 | CI checks | `.github/workflows/rust.yaml` | Tests all feature combinations |
@@ -43,20 +45,16 @@ BGPKIT-Commons is a Rust library for common BGP-related data and functions with 
 | `LazyLoadable` | trait | `lib.rs` | Reload trait for all modules |
 | `AsInfoBuilder` | struct | `asinfo/mod.rs` | Configure AS info data sources |
 | `RpkiTrie` | struct | `rpki/mod.rs` | RPKI data storage and validation |
+| `Peeringdb` | struct | `peeringdb/mod.rs` | PeeringDB data container with typed accessors |
+| `Network` | struct | `peeringdb/tables.rs` | Full PeeringDB `/net` record (aka `PeeringdbData`) |
 
 ## Conventions
 
 - **Rust 2024 edition** with relaxed clippy rules (`uninlined_format_args`, `collapsible_if` allowed)
-- **Feature-gated modules** - All modules behind feature flags (`asinfo`, `rpki`, etc.)
+- **Feature-gated modules** - All modules behind feature flags (`asinfo`, `rpki`, `peeringdb`, etc.)
 - **Lazy-loading pattern** - Always call `load_xxx()` before accessing data
 - **Builder pattern** - `AsInfoBuilder` for ergonomic configuration
 - **README generation** - Run `cargo readme > README.md` after lib.rs doc changes
-
-## Anti-Patterns
-
-- `RoaEntry` type alias is **deprecated** (use `Roa` instead) - will be removed in v0.12.0
-- Must call `load_xxx()` before accessing module data - access methods return errors if not loaded
-- Never edit `README.md` directly - generate from `lib.rs` via `cargo-readme`
 
 ## Commands
 

@@ -105,7 +105,7 @@
 //! ## Loading Historical Data with Source Selection
 //! ```rust,no_run
 //! use bgpkit_commons::BgpkitCommons;
-//! use bgpkit_commons::rpki::{HistoricalRpkiSource, RpkiViewsCollector};
+//! use bgpkit_commons::rpki::{HistoricalRpkiSource, RpkiViewsCollector, RpkiSpoolsCollector};
 //! use chrono::NaiveDate;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -117,6 +117,10 @@
 //!
 //! // Or load from RPKIviews (uses the SobornostNet collector by default)
 //! let source = HistoricalRpkiSource::RpkiViews(RpkiViewsCollector::default());
+//! commons.load_rpki_historical(date, source)?;
+//!
+//! // Or load from RPKISPOOL (CCR format, uses SobornostNet by default)
+//! let source = HistoricalRpkiSource::RpkiSpools(RpkiSpoolsCollector::default());
 //! commons.load_rpki_historical(date, source)?;
 //! # Ok(())
 //! # }
@@ -212,8 +216,17 @@ pub struct RpkiFile {
     pub size: Option<u64>,
     /// RIR that this file is for (for RIPE files)
     pub rir: Option<Rir>,
-    /// Collector that provides this file (for RPKIviews files)
-    pub collector: Option<RpkiViewsCollector>,
+    /// Collector that provides this file
+    pub collector: Option<RpkiCollector>,
+}
+
+/// Identifies the collector that produced or hosts an RPKI data file.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RpkiCollector {
+    /// RPKIviews collector
+    RpkiViews(RpkiViewsCollector),
+    /// RPKISPOOL collector
+    RpkiSpools(RpkiSpoolsCollector),
 }
 
 /// Historical RPKI data source.

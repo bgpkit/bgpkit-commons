@@ -17,7 +17,7 @@
 //! [draft-ietf-sidrops-rpki-ccr]: https://datatracker.ietf.org/doc/draft-ietf-sidrops-rpki-ccr/
 
 use crate::Result;
-use crate::rpki::{Aspa, Roa, RpkiFile, RpkiTrie};
+use crate::rpki::{Aspa, Roa, RpkiCollector, RpkiFile, RpkiTrie};
 use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use ipnet::IpNet;
 use serde::{Deserialize, Serialize};
@@ -142,7 +142,7 @@ pub fn list_rpkispools_files(
         timestamp: timestamp.unwrap_or_else(|| DateTime::from_timestamp(0, 0).unwrap()),
         size: None,
         rir: None,
-        collector: None,
+        collector: Some(RpkiCollector::RpkiSpools(collector)),
     }])
 }
 

@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## v0.12.0 - 2026-07-28
+
 ### New features
 
 * New `peeringdb` top-level module with typed structs mirroring all 12 PeeringDB
@@ -20,6 +22,8 @@ All notable changes to this project will be documented in this file.
       `get_facility(fac_id)`, `get_organization(org_id)`
     - `PeeringdbData` is now a type alias for the full `Network` struct
       (backward compatible with existing `asinfo` consumers)
+* New `RpkiCollector` enum unifying RPKIviews and RPKISPOOL collector types
+  in `RpkiFile.collector` field
 
 ### Changes
 
@@ -29,6 +33,8 @@ All notable changes to this project will be documented in this file.
 * Moved `peeringdb.rs` from `asinfo/` subdirectory to new top-level
   `peeringdb/` module
 * `AsInfo::get_preferred_name()` now skips empty PeeringDB names
+* `RpkiFile.collector` field type changed from `Option<RpkiViewsCollector>`
+  to `Option<RpkiCollector>` (additive — RPKISPOOL collectors now populate it)
 
 ## v0.11.0 - 2026-07-23
 

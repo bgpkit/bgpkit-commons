@@ -10,6 +10,7 @@ src/rpki/
 ├── cloudflare.rs       # Real-time RPKI data from Cloudflare
 ├── ripe_historical.rs  # RIPE NCC historical archives
 ├── rpkiviews.rs        # RPKIviews historical data
+├── rpkispools.rs       # RPKISPOOL historical data (CCR format)
 └── rpki_client.rs      # rpki-client JSON parser
 ```
 
@@ -21,7 +22,9 @@ src/rpki/
 | `Roa` | Route Origin Authorization (prefix, ASN, max_length, validity) |
 | `Aspa` | AS Provider Authorization |
 | `RpkiValidation` | Valid / Invalid / Unknown result |
-| `HistoricalRpkiSource` | Ripe or RpkiViews enum |
+| `HistoricalRpkiSource` | Ripe / RpkiViews / RpkiSpools enum |
+| `RpkiFile` | File metadata (URL, timestamp, RIR, collector) |
+| `RpkiCollector` | Enum: RpkiViews or RpkiSpools collector |
 
 ## Data Sources
 
@@ -29,7 +32,8 @@ src/rpki/
 |--------|------|----------|
 | Cloudflare | Real-time JSON | Current validation |
 | RIPE NCC | Historical JSON | All 5 RIRs, archival |
-| RPKIviews | Historical .tgz | Multiple vantage points |
+| RPKIviews | Historical .tgz | Multiple vantage points (rpki-client JSON) |
+| RPKISPOOL | Historical .tar.zst | Efficient snapshots via CCR (DER/ASN.1) format |
 
 ## Usage Pattern
 
@@ -41,6 +45,9 @@ let result = commons.rpki_validate(64496, "192.0.2.0/24")?;
 // Historical data
 let date = NaiveDate::from_ymd_opt(2024, 1, 4).unwrap();
 commons.load_rpki_historical(date, HistoricalRpkiSource::Ripe)?;
+
+// RPKISPOOL (CCR format)
+commons.load_rpki_historical(date, HistoricalRpkiSource::RpkiSpools(RpkiSpoolsCollector::default()))?;
 ```
 
 ## Validation Logic
@@ -52,5 +59,8 @@ commons.load_rpki_historical(date, HistoricalRpkiSource::Ripe)?;
 ## Notes
 
 - RPKIviews streams tarballs efficiently (stops early once rpki-client.json found)
+- RPKISPOOL parses DER-encoded CCR files using `bcder` (first CCR file in archive)
+- RPKISPOOL has 3 mirrors: SobornostNet (default), AttnJp, KerfuffleNet
+- Both drafts still in progress: `draft-ietf-sidrops-rpki-ccr-11`, `draft-snijders-rpkispool-format-00`
 - `RoaEntry` type alias is deprecated - use `Roa`
 - Multiple ROAs per prefix supported (avoids duplicates by (prefix, asn, max_length))

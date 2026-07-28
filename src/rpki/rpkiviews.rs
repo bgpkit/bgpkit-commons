@@ -12,7 +12,7 @@
 
 use crate::Result;
 use crate::rpki::rpki_client::RpkiClientData;
-use crate::rpki::{RpkiFile, RpkiTrie};
+use crate::rpki::{RpkiCollector, RpkiFile, RpkiTrie};
 use chrono::{DateTime, Datelike, NaiveDate};
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, Read, Write};
@@ -132,7 +132,7 @@ pub fn list_rpkiviews_files(
                 timestamp,
                 size: Some(size),
                 rir: None,
-                collector: Some(collector),
+                collector: Some(RpkiCollector::RpkiViews(collector)),
             });
         }
     }
