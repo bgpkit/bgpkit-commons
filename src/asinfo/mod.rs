@@ -41,15 +41,10 @@
 //!     pub ipv4: f64,
 //!     pub ipv6: f64,
 //! }
-//! #[derive(Debug, Clone, Serialize, Deserialize)]
-//! pub struct PeeringdbData {
-//!     pub asn: u32,
-//!     pub name: Option<String>,
-//!     pub name_long: Option<String>,
-//!     pub aka: Option<String>,
-//!     pub irr_as_set: Option<String>,
-//! }
 //! ```
+//!
+//! The `peeringdb` field of `AsInfo` uses [`crate::peeringdb::Network`], which
+//! mirrors the full PeeringDB `/net` API record.
 //!
 //! # Example
 //!
@@ -113,11 +108,11 @@
 
 mod as2org;
 mod hegemony;
-mod peeringdb;
 mod population;
 mod sibling_orgs;
 
 use crate::errors::{data_sources, load_methods, modules};
+use crate::peeringdb::{Network, Peeringdb};
 use crate::{BgpkitCommons, BgpkitCommonsError, LazyLoadable, Result};
 use serde::{Deserialize, Serialize};
 use sibling_orgs::SiblingOrgsUtils;
@@ -126,7 +121,6 @@ use std::io::{BufRead, Read};
 use tracing::info;
 
 pub use hegemony::HegemonyData;
-pub use peeringdb::PeeringdbData;
 pub use population::AsnPopulationData;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -137,7 +131,7 @@ pub struct AsInfo {
     pub as2org: Option<As2orgInfo>,
     pub population: Option<AsnPopulationData>,
     pub hegemony: Option<HegemonyData>,
-    pub peeringdb: Option<PeeringdbData>,
+    pub peeringdb: Option<Network>,
 }
 
 impl AsInfo {
@@ -152,7 +146,9 @@ impl AsInfo {
     pub fn get_preferred_name(&self) -> String {
         if let Some(peeringdb_data) = &self.peeringdb {
             if let Some(name) = &peeringdb_data.name {
-                return name.clone();
+                if !name.is_empty() {
+                    return name.clone();
+                }
             }
         }
         if let Some(as2org_info) = &self.as2org {
@@ -389,7 +385,7 @@ pub fn get_asinfo_map(
     };
     let peeringdb_utils = if load_peeringdb {
         info!("loading peeringdb data...");
-        Some(peeringdb::Peeringdb::new()?)
+        Some(Peeringdb::new_networks_only()?)
     } else {
         None
     };
@@ -420,7 +416,7 @@ pub fn get_asinfo_map(
                 .and_then(|h| h.get_score(asn).cloned());
             let peeringdb = peeringdb_utils
                 .as_ref()
-                .and_then(|h| h.get_data(asn).cloned());
+                .and_then(|h| h.get_network(asn).cloned());
             Some(AsInfo {
                 asn,
                 name: name_str.to_string(),

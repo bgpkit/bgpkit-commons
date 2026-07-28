@@ -73,6 +73,16 @@
 //! - Access: `mrt_collectors_all()`, `mrt_collectors_by_name(name)`, `mrt_collectors_by_country(country)`, `mrt_collector_peers_all()`, `mrt_collector_peers_full_feed()`
 //! - BGP collector information, peer details, full-feed vs partial-feed classification
 //!
+//! ### [`peeringdb`] — PeeringDB Data
+//!
+//! Feature: `peeringdb` | Source: [PeeringDB API](https://www.peeringdb.com/api/)
+//!
+//! - Load: `Peeringdb::new()` (all tables), `Peeringdb::new_networks_only()` (lightweight)
+//! - Access: `get_network(asn)`, `get_ixp(ix_id)`, `get_ixp_memberships(asn)`, `lookup_ixp_prefix(prefix)`, `get_facility(fac_id)`
+//! - Typed structs mirroring all 12 PeeringDB API endpoints: networks, internet exchanges,
+//!   IXP prefixes, IXP membership, facilities, organizations, carriers, and more
+//! - `PeeringdbData` is a type alias for the full `Network` struct (backward compatible)
+//!
 //! ### [`rpki`] — RPKI Validation
 //!
 //! Feature: `rpki` | Sources: Cloudflare (real-time), RIPE NCC historical, RPKIviews historical, RPKISPOOL historical
@@ -177,6 +187,7 @@
 //! | `bogons` | Bogon prefix and ASN detection |
 //! | `countries` | Country information lookup |
 //! | `mrt_collectors` | MRT collector metadata |
+//! | `peeringdb` | PeeringDB API data (networks, IXPs, facilities, organizations) |
 //! | `rpki` | RPKI validation (ROA and ASPA) |
 //! | `all` *(default)* | Enables all modules |
 //!
@@ -202,6 +213,8 @@ pub mod bogons;
 pub mod countries;
 #[cfg(feature = "mrt_collectors")]
 pub mod mrt_collectors;
+#[cfg(feature = "peeringdb")]
+pub mod peeringdb;
 #[cfg(feature = "rpki")]
 pub mod rpki;
 
