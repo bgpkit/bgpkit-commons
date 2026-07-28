@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### New features
+
+* New `peeringdb` top-level module with typed structs mirroring all 12 PeeringDB
+  API endpoints: `Network` (`/net`), `InternetExchange` (`/ix`), `IxLan`
+  (`/ixlan`), `IxPrefix` (`/ixpfx`), `NetworkIxLan` (`/netixlan`), `Facility`
+  (`/fac`), `NetworkFacility` (`/netfac`), `IxFacility` (`/ixfac`),
+  `Organization` (`/org`), `Campus` (`/campus`), `Carrier` (`/carrier`),
+  `CarrierFacility` (`/carrierfac`)
+    - `Peeringdb::new()` loads all tables; `Peeringdb::new_networks_only()`
+      loads only `/net` for lightweight use
+    - Typed accessors: `get_network(asn)`, `get_ixp(ix_id)`,
+      `get_ixp_memberships(asn)`, `get_asns_at_ixp(ix_id)`,
+      `lookup_ixp_prefix(prefix)`, `is_ixp_prefix(prefix)`,
+      `get_facility(fac_id)`, `get_organization(org_id)`
+    - `PeeringdbData` is now a type alias for the full `Network` struct
+      (backward compatible with existing `asinfo` consumers)
+
+### Changes
+
+* `asinfo` feature now depends on `peeringdb` feature
+* `AsInfo.peeringdb` field type changed from the old 6-field `PeeringdbData`
+  to the full `Network` struct (additive — all existing fields preserved)
+* Moved `peeringdb.rs` from `asinfo/` subdirectory to new top-level
+  `peeringdb/` module
+* `AsInfo::get_preferred_name()` now skips empty PeeringDB names
+
 ## v0.11.0 - 2026-07-23
 
 ### New features

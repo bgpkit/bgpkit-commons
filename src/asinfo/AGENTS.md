@@ -9,7 +9,6 @@ src/asinfo/
 ├── mod.rs              # AsInfo, AsInfoBuilder, AsInfoUtils
 ├── as2org.rs           # CAIDA AS-to-organization mapping
 ├── hegemony.rs         # IIJ IHR hegemony scores
-├── peeringdb.rs        # PeeringDB integration
 ├── population.rs       # APNIC AS population data
 └── sibling_orgs.rs     # Sibling organization detection
 ```
@@ -30,7 +29,7 @@ src/asinfo/
 | CAIDA as2org | `as2org.rs` | Organization mappings |
 | APNIC | `population.rs` | User population stats |
 | IIJ IHR | `hegemony.rs` | Hegemony scores |
-| PeeringDB | `peeringdb.rs` | IRR as-set, long names |
+| PeeringDB | `../peeringdb/` | Full API structs; `PeeringdbData` = `Network` |
 
 ## Usage Pattern
 
