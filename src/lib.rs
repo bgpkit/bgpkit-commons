@@ -213,6 +213,9 @@ pub mod bogons;
 pub mod countries;
 #[cfg(feature = "irr")]
 pub mod irr;
+
+#[cfg(feature = "delegated")]
+pub mod delegated;
 #[cfg(feature = "mrt_collectors")]
 pub mod mrt_collectors;
 #[cfg(feature = "peeringdb")]

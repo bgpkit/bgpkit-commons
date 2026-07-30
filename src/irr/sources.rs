@@ -4,6 +4,7 @@
 //! (HTTPS/FTP) and format (split files vs whole-DB) each one uses.
 
 use crate::irr::IrrObjectType;
+use crate::{BgpkitCommonsError, Result};
 
 /// The transport used to fetch a dump file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -169,6 +170,25 @@ pub fn default_sources() -> Vec<IrrSource> {
 /// Look up a source by name (case-sensitive, as used in the RPSL `source:` attribute).
 pub fn source_by_name(name: &str) -> Option<IrrSource> {
     SOURCES.iter().find(|s| s.name == name).cloned()
+}
+
+/// Resolve an ordered, deduplicated list of source names.
+///
+/// Every requested name must exist in the catalog; unknown names are errors
+/// rather than silently producing a smaller source selection.
+pub fn sources_by_name(names: &[&str]) -> Result<Vec<IrrSource>> {
+    let mut selected = Vec::with_capacity(names.len());
+    let mut seen = std::collections::HashSet::new();
+    for name in names {
+        if !seen.insert(*name) {
+            continue;
+        }
+        let source = source_by_name(name).ok_or_else(|| {
+            BgpkitCommonsError::invalid_format("IRR source", *name, "unknown registry name")
+        })?;
+        selected.push(source);
+    }
+    Ok(selected)
 }
 
 const DEFAULT_SOURCES: &[IrrSource] = &[

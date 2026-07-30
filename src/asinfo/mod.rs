@@ -14,38 +14,13 @@
 //!
 //! # Data structure
 //!
-//! ```rust,no_run
-//! use serde::{Deserialize, Serialize};
-//! #[derive(Debug, Clone, Serialize, Deserialize)]
-//! pub struct AsInfo {
-//!     pub asn: u32,
-//!     pub name: String,
-//!     pub country: String,
-//!     pub as2org: Option<As2orgInfo>,
-//!     pub population: Option<AsnPopulationData>,
-//!     pub hegemony: Option<HegemonyData>,
-//!     pub irr: Vec<IrrAsnInfo>,
-//!     pub delegated: Option<DelegatedInfo>,
-//! }
-//! #[derive(Debug, Clone, Serialize, Deserialize)]
-//! pub struct As2orgInfo {
-//!     pub name: String,
-//!     pub country: String,
-//!     pub org_id: String,
-//!     pub org_name: String,
-//! }
-//! #[derive(Debug, Clone, Serialize, Deserialize)]
-//! pub struct AsnPopulationData {
-//!     pub user_count: i64,
-//!     pub percent_country: f64,
-//!     pub percent_global: f64,
-//!     pub sample_count: i64,
-//! }
-//! #[derive(Debug, Clone, Serialize, Deserialize)]
-//! pub struct HegemonyData {
-//!     pub asn: u32,
-//!     pub ipv4: f64,
-//!     pub ipv6: f64,
+//! ```rust
+//! use bgpkit_commons::asinfo::AsInfo;
+//!
+//! fn inspect(info: &AsInfo) {
+//!     println!("AS{}: {} ({})", info.asn, info.name, info.country);
+//!     println!("delegated: {:?}", info.delegated);
+//!     println!("IRR registries: {}", info.irr.len());
 //! }
 //! ```
 //!
@@ -68,13 +43,9 @@
 //! Directly call the module:
 //!
 //! ```rust,no_run
-//! use std::collections::HashMap;
-//! use bgpkit_commons::asinfo::{AsInfo, get_asinfo_map};
+//! use bgpkit_commons::asinfo::AsInfoBuilder;
 //!
-//! let asinfo: HashMap<u32, AsInfo> = get_asinfo_map(false, false, false, false).unwrap();
-//! assert_eq!(asinfo.get(&3333).unwrap().name, "RIPE-NCC-AS Reseaux IP Europeens Network Coordination Centre (RIPE NCC)");
-//! assert_eq!(asinfo.get(&400644).unwrap().name, "BGPKIT-LLC");
-//! assert_eq!(asinfo.get(&400644).unwrap().country, "US");
+//! let _asinfo = AsInfoBuilder::new().build().unwrap();
 //! ```
 //!
 //! Retrieve all previously generated and cached AS information:
@@ -120,6 +91,7 @@ mod sibling_orgs;
 use crate::errors::{data_sources, load_methods, modules};
 use crate::peeringdb::{Network, Peeringdb};
 use crate::{BgpkitCommons, BgpkitCommonsError, LazyLoadable, Result};
+use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use serde::{Deserialize, Serialize};
 use sibling_orgs::SiblingOrgsUtils;
 use std::collections::HashMap;
@@ -168,9 +140,9 @@ pub struct IrrAsnInfo {
     /// The `mnt-by` attribute(s) — maintainers controlling this object.
     pub mnt_by: Vec<String>,
     /// Registered IPv4 prefixes from `route` objects with this ASN as origin.
-    pub route_prefixes: Vec<String>,
+    pub route_prefixes: Vec<Ipv4Net>,
     /// Registered IPv6 prefixes from `route6` objects with this ASN as origin.
-    pub route6_prefixes: Vec<String>,
+    pub route6_prefixes: Vec<Ipv6Net>,
     /// AS-set names that contain this ASN as a direct member.
     pub member_of_sets: Vec<String>,
 }
@@ -180,14 +152,20 @@ pub struct AsInfo {
     pub asn: u32,
     pub name: String,
     pub country: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub as2org: Option<As2orgInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub population: Option<AsnPopulationData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub hegemony: Option<HegemonyData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub peeringdb: Option<Network>,
     /// RIR delegated-stats allocation data. Present for every allocated ASN.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delegated: Option<DelegatedInfo>,
     /// IRR data per registry source. Empty if the ASN has no IRR registrations.
     /// Multiple sources may have data; callers choose which to trust.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub irr: Vec<IrrAsnInfo>,
 }
 
@@ -229,31 +207,19 @@ const RIPE_RIS_ASN_TXT_URL: &str = "https://ftp.ripe.net/ripe/asnames/asn.txt";
 const BGPKIT_ASN_TXT_MIRROR_URL: &str = "https://data.bgpkit.com/commons/asn.txt";
 const BGPKIT_ASNINFO_URL: &str = "https://data.bgpkit.com/commons/asinfo.jsonl";
 
-/// RIR delegated stats files (NRO format), used to fill ASNs missing from
-/// RIPE NCC `asn.txt`. These files are authoritative allocation records,
-/// updated daily, and include newly-allocated ASNs that `asn.txt` lags on
-/// by days to weeks.
-const RIR_DELEGATED_STATS_URLS: &[&str] = &[
-    "https://ftp.arin.net/pub/stats/arin/delegated-arin-extended-latest",
-    "https://ftp.ripe.net/pub/stats/ripencc/delegated-ripencc-latest",
-    "https://ftp.apnic.net/pub/stats/apnic/delegated-apnic-latest",
-    "https://ftp.lacnic.net/pub/stats/lacnic/delegated-lacnic-latest",
-    "https://ftp.afrinic.net/pub/stats/afrinic/delegated-afrinic-latest",
-];
-
 /// Configuration for which IRR sources to fetch.
 ///
-/// By default, `with_irr()` uses the default source set (5 RIRs + NTTCOM + RADB).
+/// By default, `with_irr()` uses every catalogued source.
 /// For finer control, use `with_irr_sources()` to pick specific registries.
 ///
 /// # Example
 ///
 /// ```rust,no_run
 /// use bgpkit_commons::asinfo::AsInfoBuilder;
-/// use bgpkit_commons::irr::IrrSourceConfig;
+/// use bgpkit_commons::asinfo::IrrSourceConfig;
 ///
 /// // Only RIPE + RADB
-/// let config = IrrSourceConfig::sources(&["RIPE", "RADB"]);
+/// let config = IrrSourceConfig::sources(&["RIPE", "RADB"]).unwrap();
 /// let asinfo = AsInfoBuilder::new()
 ///     .with_irr_sources(config)
 ///     .build()
@@ -262,34 +228,36 @@ const RIR_DELEGATED_STATS_URLS: &[&str] = &[
 #[derive(Debug, Clone, Default)]
 pub struct IrrSourceConfig {
     /// Registry names to fetch (e.g. `["RIPE", "RADB"]`).
-    /// If empty, uses all default sources.
+    /// If empty, uses every catalogued source.
     pub sources: Vec<String>,
 }
 
 impl IrrSourceConfig {
     /// Create a config that fetches only the named sources.
-    pub fn sources(names: &[&str]) -> Self {
-        Self {
-            sources: names.iter().map(|s| s.to_string()).collect(),
-        }
+    pub fn sources(names: &[&str]) -> Result<Self> {
+        let selected = crate::irr::sources_by_name(names)?;
+        Ok(Self {
+            sources: selected
+                .into_iter()
+                .map(|source| source.name.to_string())
+                .collect(),
+        })
     }
 
-    /// Create a config that fetches all default sources.
-    pub fn all_defaults() -> Self {
+    /// Create a config that fetches every catalogued source.
+    pub fn all() -> Self {
         Self {
             sources: Vec::new(),
         }
     }
 
     /// Resolve to the actual list of `IrrSource` structs to fetch.
-    fn resolve(&self) -> Vec<crate::irr::IrrSource> {
+    fn resolve(&self) -> Result<Vec<crate::irr::IrrSource>> {
         if self.sources.is_empty() {
-            crate::irr::default_sources()
+            Ok(crate::irr::all_sources())
         } else {
-            crate::irr::all_sources()
-                .into_iter()
-                .filter(|s| self.sources.iter().any(|n| n == s.name))
-                .collect()
+            let names = self.sources.iter().map(String::as_str).collect::<Vec<_>>();
+            crate::irr::sources_by_name(&names)
         }
     }
 }
@@ -326,9 +294,8 @@ pub enum AsInfoProfile {
     #[default]
     Default,
 
-    /// Everything: all of Default + delegated stats + IRR data from all default
-    /// sources (RIPE, APNIC, ARIN, LACNIC, AFRINIC, NTTCOM, RADB) including
-    /// route prefix lists.
+    /// Everything: all of Default + delegated stats + IRR data from every
+    /// catalogued source, including route prefix lists.
     Full,
 }
 
@@ -381,7 +348,7 @@ impl AsInfoProfile {
 /// use bgpkit_commons::asinfo::IrrSourceConfig;
 ///
 /// let asinfo = AsInfoBuilder::new()
-///     .with_irr_sources(IrrSourceConfig::sources(&["RIPE", "RADB"]))
+///     .with_irr_sources(IrrSourceConfig::sources(&["RIPE", "RADB"]).unwrap())
 ///     .build()
 ///     .unwrap();
 /// ```
@@ -434,8 +401,7 @@ impl AsInfoBuilder {
         self
     }
 
-    /// Enable loading IRR data using all default sources (RIPE, APNIC, ARIN,
-    /// LACNIC, AFRINIC, NTTCOM, RADB).
+    /// Enable loading IRR data using every source in the IRR catalog.
     pub fn with_irr(mut self) -> Self {
         self.load_irr = true;
         self
@@ -449,7 +415,7 @@ impl AsInfoBuilder {
     /// use bgpkit_commons::asinfo::{AsInfoBuilder, IrrSourceConfig};
     ///
     /// let asinfo = AsInfoBuilder::new()
-    ///     .with_irr_sources(IrrSourceConfig::sources(&["RIPE", "RADB"]))
+    ///     .with_irr_sources(IrrSourceConfig::sources(&["RIPE", "RADB"]).unwrap())
     ///     .build()
     ///     .unwrap();
     /// ```
@@ -486,17 +452,17 @@ impl AsInfoBuilder {
     }
 
     /// Internal: expose config for AsInfoUtils construction.
-    fn config(&self) -> AsInfoLoadConfig {
-        AsInfoLoadConfig {
+    fn config(&self) -> Result<AsInfoLoadConfig> {
+        Ok(AsInfoLoadConfig {
             load_as2org: self.load_as2org,
             load_population: self.load_population,
             load_hegemony: self.load_hegemony,
             load_peeringdb: self.load_peeringdb,
             load_delegated: self.load_delegated,
             load_irr: self.load_irr,
-            irr_sources: self.irr_config.resolve(),
+            irr_sources: self.irr_config.resolve()?,
             irr_route_prefixes: self.irr_route_prefixes,
-        }
+        })
     }
 }
 
@@ -522,7 +488,7 @@ pub struct AsInfoUtils {
 impl AsInfoUtils {
     /// Build from a builder (canonical path).
     fn from_builder(builder: &AsInfoBuilder) -> Result<Self> {
-        let config = builder.config();
+        let config = builder.config()?;
         let asinfo_map = get_asinfo_map(&config)?;
         let sibling_orgs = if config.load_as2org {
             Some(SiblingOrgsUtils::new()?)
@@ -549,7 +515,7 @@ impl AsInfoUtils {
                 load_peeringdb: true,
                 load_delegated: true,
                 load_irr: true,
-                irr_sources: crate::irr::default_sources(),
+                irr_sources: crate::irr::all_sources(),
                 irr_route_prefixes: false,
             },
         })
@@ -598,52 +564,54 @@ pub fn get_asinfo_map_cached() -> Result<HashMap<u32, AsInfo>> {
     Ok(asnames_map)
 }
 
-/// Parse RIR delegated stats text (NRO format) into an ASN -> DelegatedInfo map.
+/// Project a source-faithful delegated-statistics record into AsInfo data.
 ///
-/// Record format: `registry|CC|type|start|value|date|status[|extensions]`.
 /// Only `asn` records with `allocated`/`assigned` status and a real (non-empty,
 /// non-`*`) country code are kept; private-use ASN ranges (RFC 6996:
 /// 64512-65534 and 4200000000+) are excluded. Ranges are expanded per-ASN
 /// (`value` is a count).
-fn parse_delegated_stats(text: &str, map: &mut HashMap<u32, DelegatedInfo>) {
-    for line in text.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
+fn project_delegated_record(
+    record: crate::delegated::DelegatedRecord,
+    map: &mut HashMap<u32, DelegatedInfo>,
+) {
+    if record.record_type != "asn" {
+        return;
+    }
+    let status = record.status.trim();
+    if status != "allocated" && status != "assigned" {
+        return;
+    }
+    let cc = record.country.trim();
+    if cc.is_empty() || cc == "*" {
+        return;
+    }
+    let (Ok(start), Ok(count)) = (record.start.parse::<u64>(), record.value.parse::<u64>()) else {
+        return;
+    };
+    let registry = record.registry.trim().to_lowercase();
+    let country = cc.to_uppercase();
+    let date = record.date.trim().to_string();
+    for asn in start..start.saturating_add(count) {
+        if asn > u32::MAX as u64 {
+            break;
+        }
+        let asn = asn as u32;
+        if (64512..=65534).contains(&asn) || asn >= 4_200_000_000 {
             continue;
         }
-        let parts: Vec<&str> = line.split('|').collect();
-        if parts.len() < 7 || parts[2] != "asn" {
-            continue;
-        }
-        let status = parts[6].trim();
-        if status != "allocated" && status != "assigned" {
-            continue;
-        }
-        let cc = parts[1].trim();
-        if cc.is_empty() || cc == "*" {
-            continue;
-        }
-        let (Ok(start), Ok(count)) = (parts[3].parse::<u64>(), parts[4].parse::<u64>()) else {
-            continue;
-        };
-        let registry = parts[0].trim().to_lowercase();
-        let country = cc.to_uppercase();
-        let date = parts.get(5).unwrap_or(&"").trim().to_string();
-        for asn in start..start.saturating_add(count) {
-            if asn > u32::MAX as u64 {
-                break;
-            }
-            let asn = asn as u32;
-            if (64512..=65534).contains(&asn) || asn >= 4_200_000_000 {
-                continue;
-            }
-            map.entry(asn).or_insert(DelegatedInfo {
-                registry: registry.clone(),
-                country: country.clone(),
-                date: date.clone(),
-                status: status.to_string(),
-            });
-        }
+        map.entry(asn).or_insert(DelegatedInfo {
+            registry: registry.clone(),
+            country: country.clone(),
+            date: date.clone(),
+            status: status.to_string(),
+        });
+    }
+}
+
+#[cfg(test)]
+fn project_delegated_stats(text: &str, map: &mut HashMap<u32, DelegatedInfo>) {
+    for record in crate::delegated::parse_reader(text.as_bytes()).flatten() {
+        project_delegated_record(record, map);
     }
 }
 
@@ -693,16 +661,17 @@ fn fill_delegated_data(
     hegemony_utils: Option<&hegemony::Hegemony>,
     peeringdb_utils: Option<&Peeringdb>,
 ) {
-    let read_text = |url: &str| -> Result<String> {
-        let mut text = String::new();
-        oneio::get_reader(url)?.read_to_string(&mut text)?;
-        Ok(text)
-    };
-
     let mut delegated: HashMap<u32, DelegatedInfo> = HashMap::new();
-    for url in RIR_DELEGATED_STATS_URLS {
-        match read_text(url) {
-            Ok(text) => parse_delegated_stats(&text, &mut delegated),
+    for url in crate::delegated::RIR_DELEGATED_STATS_URLS {
+        match crate::delegated::fetch(url) {
+            Ok(reader) => {
+                for record in crate::delegated::parse_reader(reader) {
+                    match record {
+                        Ok(record) => project_delegated_record(record, &mut delegated),
+                        Err(e) => warn!("failed to parse delegated stats from {url}: {e}"),
+                    }
+                }
+            }
             Err(e) => warn!("failed to load delegated stats from {}: {}", url, e),
         }
     }
@@ -744,7 +713,7 @@ fn fill_delegated_data(
         "delegated stats: {attached} existing entries enriched, {new_entries} new entries created"
     );
 }
-/// Enrich ASInfo entries with structured IRR data from all default sources.
+/// Enrich AsInfo entries with structured IRR data from selected sources.
 ///
 /// For each IRR source (RIPE, APNIC, ARIN, LACNIC, AFRINIC, NTTCOM, RADB),
 /// collects:
@@ -757,9 +726,6 @@ fn fill_delegated_data(
 /// can pick which source(s) to trust. Per-source failures are logged and
 /// skipped.
 ///
-/// Additionally, for entries whose `name` is `"UNKNOWN"`, the `as-name` from
-/// the first IRR source (by default priority order) that has a non-empty name
-/// replaces the placeholder.
 fn enrich_from_irr(
     asnames_map: &mut HashMap<u32, AsInfo>,
     irr_sources: &[crate::irr::IrrSource],
@@ -843,14 +809,18 @@ fn enrich_from_irr(
                             if entry.source.is_empty() {
                                 entry.source = r.source.clone();
                             }
-                            entry.route_prefixes.push(r.prefix.to_string());
+                            if let IpNet::V4(prefix) = r.prefix {
+                                entry.route_prefixes.push(prefix);
+                            }
                         }
                         IrrObject::Route6(r) => {
                             let entry = source_map.entry(r.origin).or_default();
                             if entry.source.is_empty() {
                                 entry.source = r.source.clone();
                             }
-                            entry.route6_prefixes.push(r.prefix.to_string());
+                            if let IpNet::V6(prefix) = r.prefix {
+                                entry.route6_prefixes.push(prefix);
+                            }
                         }
                         IrrObject::AsSet(s) => {
                             let set_name = s.name.clone();
@@ -877,7 +847,6 @@ fn enrich_from_irr(
 
     // Attach per-source IrrAsnInfo to each ASN
     let mut irr_attached = 0usize;
-    let mut names_filled = 0usize;
 
     for (asn, info) in asnames_map.iter_mut() {
         let mut irr_entries: Vec<IrrAsnInfo> = Vec::new();
@@ -890,24 +859,13 @@ fn enrich_from_irr(
             }
         }
 
-        // Fill UNKNOWN name from first IRR source with a non-empty as_name
-        if info.name == "UNKNOWN" {
-            for irr_info in &irr_entries {
-                if !irr_info.as_name.is_empty() {
-                    info.name = irr_info.as_name.clone();
-                    names_filled += 1;
-                    break;
-                }
-            }
-        }
-
         if !irr_entries.is_empty() {
             info.irr = irr_entries;
             irr_attached += 1;
         }
     }
 
-    info!("IRR data attached to {irr_attached} ASNs, {names_filled} UNKNOWN names filled from IRR");
+    info!("IRR data attached to {irr_attached} ASNs");
 }
 
 /// Builder for IrrAsnInfo — accumulates data from multiple object types
@@ -918,8 +876,8 @@ struct IrrAsnInfoBuilder {
     descr: Vec<String>,
     source: String,
     mnt_by: Vec<String>,
-    route_prefixes: Vec<String>,
-    route6_prefixes: Vec<String>,
+    route_prefixes: Vec<Ipv4Net>,
+    route6_prefixes: Vec<Ipv6Net>,
     member_of_sets: Vec<String>,
 }
 
@@ -1235,7 +1193,7 @@ ripencc|NL|asn|1000|4|19970901|allocated
 ripencc|NL|ipv4|185.0.0.0|65536|20000101|allocated
 ";
         let mut map = HashMap::new();
-        parse_delegated_stats(text, &mut map);
+        project_delegated_stats(text, &mut map);
         assert_eq!(cc(&map, 219157), Some("GB"));
         assert_eq!(cc(&map, 219125), Some("DE"));
         assert_eq!(cc(&map, 402598), Some("US"));
@@ -1264,7 +1222,7 @@ arin|US|asn|notanumber|1|20200101|allocated
 arin|US|asn|123|notacount|20200101|allocated
 ";
         let mut map = HashMap::new();
-        parse_delegated_stats(text, &mut map);
+        project_delegated_stats(text, &mut map);
         assert!(map.is_empty());
     }
 
@@ -1279,7 +1237,7 @@ arin|US|asn|300002|1|20200101|allocated
 arin|US|asn|300003|1|20200101|assigned
 ";
         let mut map = HashMap::new();
-        parse_delegated_stats(text, &mut map);
+        project_delegated_stats(text, &mut map);
         assert!(!map.contains_key(&300000));
         assert!(!map.contains_key(&300001));
         assert_eq!(cc(&map, 300002), Some("US"));
@@ -1300,7 +1258,7 @@ arin|US|asn|4199999999|1|19891201|allocated
 arin|US|asn|4200000000|1|19891201|allocated
 ";
         let mut map = HashMap::new();
-        parse_delegated_stats(text, &mut map);
+        project_delegated_stats(text, &mut map);
         assert_eq!(cc(&map, 65535), Some("US"));
         assert!(!map.contains_key(&65534));
         assert_eq!(cc(&map, 64496), Some("US"));
@@ -1312,7 +1270,7 @@ arin|US|asn|4200000000|1|19891201|allocated
     fn test_parse_delegated_stats_case_normalization() {
         let text = "lacnic|br|asn|269000|1|20150101|allocated\n";
         let mut map = HashMap::new();
-        parse_delegated_stats(text, &mut map);
+        project_delegated_stats(text, &mut map);
         assert_eq!(cc(&map, 269000), Some("BR"));
         assert_eq!(map[&269000].registry, "lacnic");
     }
@@ -1330,10 +1288,54 @@ ripencc|GB|asn|100|1|20200101
 ripencc|GB|asn|100|1|20200101|allocated|extra|fields|ok
 ";
         let mut map = HashMap::new();
-        parse_delegated_stats(text, &mut map);
+        project_delegated_stats(text, &mut map);
         // empty registry is kept (only CC matters), short lines dropped,
         // extended lines with >7 fields still parsed
         assert_eq!(cc(&map, 100), Some("GB"));
         assert_eq!(map.len(), 1);
+    }
+
+    #[test]
+    fn test_profiles_match_asninfo_v1_and_full_uses_all_sources() {
+        let minimum = AsInfoProfile::Minimum.builder().config().unwrap();
+        assert!(!minimum.load_as2org);
+        assert!(!minimum.load_population);
+        assert!(!minimum.load_hegemony);
+        assert!(!minimum.load_peeringdb);
+        assert!(!minimum.load_delegated);
+        assert!(!minimum.load_irr);
+
+        let default = AsInfoProfile::Default.builder().config().unwrap();
+        assert!(default.load_as2org);
+        assert!(default.load_population);
+        assert!(default.load_hegemony);
+        assert!(default.load_peeringdb);
+        assert!(!default.load_delegated);
+        assert!(!default.load_irr);
+
+        let full = AsInfoProfile::Full.builder().config().unwrap();
+        assert!(full.load_delegated);
+        assert!(full.load_irr);
+        assert!(full.irr_route_prefixes);
+        assert_eq!(full.irr_sources.len(), crate::irr::all_sources().len());
+    }
+
+    #[test]
+    fn test_custom_irr_sources_are_validated() {
+        assert!(IrrSourceConfig::sources(&["RIPE", "NOT-A-REGISTRY"]).is_err());
+
+        let selected = IrrSourceConfig::sources(&["RIPE", "RADB"]).unwrap();
+        let config = AsInfoBuilder::new()
+            .with_irr_sources(selected)
+            .config()
+            .unwrap();
+        assert_eq!(
+            config
+                .irr_sources
+                .iter()
+                .map(|source| source.name)
+                .collect::<Vec<_>>(),
+            vec!["RIPE", "RADB"]
+        );
     }
 }

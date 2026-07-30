@@ -39,14 +39,14 @@ fn main() {
                 let mut c = BgpkitCommons::new();
                 let b = c
                     .asinfo_builder()
-                    .with_irr_sources(IrrSourceConfig::sources(&[*src]));
+                    .with_irr_sources(IrrSourceConfig::sources(&[*src]).unwrap());
                 c.load_asinfo_with(b).unwrap();
             },
         );
     }
 
-    // 4. All IRR default sources
-    time_it("IRR all defaults (7 sources):", || {
+    // 4. All catalogued IRR sources
+    time_it("IRR all sources:", || {
         let mut c = BgpkitCommons::new();
         let b = c.asinfo_builder().with_irr();
         c.load_asinfo_with(b).unwrap();

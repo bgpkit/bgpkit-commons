@@ -9,6 +9,53 @@ use std::collections::BTreeMap;
 use ipnet::IpNet;
 use serde::{Deserialize, Serialize};
 
+use crate::irr::extract;
+use crate::{BgpkitCommonsError, Result};
+
+/// One ordered RPSL attribute from an IRR source record.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IrrAttribute {
+    pub name: String,
+    pub value: String,
+}
+
+/// One source-faithful RPSL object.
+///
+/// Attributes remain ordered and repeated attributes remain separate. The
+/// record is not restricted to the object classes with typed projections.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IrrRecord {
+    pub object_type: String,
+    pub attributes: Vec<IrrAttribute>,
+}
+
+impl IrrRecord {
+    /// Convert a supported raw record to the existing typed representation.
+    /// Unsupported object classes return `Ok(None)`.
+    pub fn to_typed(&self) -> Result<Option<IrrObject>> {
+        let mut text = String::new();
+        for attribute in &self.attributes {
+            let mut values = attribute.value.split('\n');
+            let first = values.next().unwrap_or_default();
+            text.push_str(&attribute.name);
+            text.push_str(": ");
+            text.push_str(first);
+            text.push('\n');
+            for continuation in values {
+                text.push(' ');
+                text.push_str(continuation);
+                text.push('\n');
+            }
+        }
+        text.push('\n');
+
+        let parsed = rpsl::parse_object(&text).map_err(|error| {
+            BgpkitCommonsError::invalid_format("RPSL object", &self.object_type, error.to_string())
+        })?;
+        extract::extract(&parsed)
+    }
+}
+
 /// RPSL object types that this module knows how to extract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum IrrObjectType {

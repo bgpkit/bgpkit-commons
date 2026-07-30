@@ -47,7 +47,8 @@ default = ["all"]
 
 # Module features
 irr = ["oneio", "rpsl-rs", "ipnet", "serde_json", "tracing"]
-asinfo = ["peeringdb", "irr", "oneio", "serde_json", "tracing", "chrono", "regex"]
+delegated = ["oneio", "tracing"]
+asinfo = ["peeringdb", "irr", "delegated", "oneio", "serde_json", "tracing", "chrono", "regex"]
 as2rel = ["oneio", "serde_json", "tracing"]
 bogons = ["oneio", "ipnet", "regex", "chrono"]
 countries = ["oneio"]
@@ -56,7 +57,7 @@ peeringdb = ["oneio", "serde_json", "tracing"]
 rpki = ["oneio", "ipnet", "ipnet-trie", "chrono", "tracing", "tar", "serde_json", "zstd", "bcder"]
 
 # Convenience feature to enable all modules
-all = ["asinfo", "as2rel", "bogons", "countries", "irr", "mrt_collectors", "peeringdb", "rpki"]
+all = ["asinfo", "as2rel", "bogons", "countries", "delegated", "irr", "mrt_collectors", "peeringdb", "rpki"]
 
 # Example configurations - specify required features for each example
 [[example]]

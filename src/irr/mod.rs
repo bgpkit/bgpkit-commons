@@ -60,6 +60,10 @@ pub mod types;
 
 pub use sources::{
     DumpFormat, IrrDumpUrl, IrrSource, Transport, all_sources, default_sources, source_by_name,
+    sources_by_name,
 };
-pub use stream::{ParseStats, parse_dump, parse_dump_from_reader};
-pub use types::{AsSet, AutNum, IrrObject, IrrObjectType, Mntner, Organisation, Route, RouteSet};
+pub use stream::{ParseStats, fetch, parse_dump, parse_dump_from_reader, parse_reader};
+pub use types::{
+    AsSet, AutNum, IrrAttribute, IrrObject, IrrObjectType, IrrRecord, Mntner, Organisation, Route,
+    RouteSet,
+};

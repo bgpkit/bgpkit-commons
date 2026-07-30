@@ -8,15 +8,13 @@
 //! supported type are skipped cheaply (a string comparison on the first
 //! token of each object).
 
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
 
-use rpsl::parse_object;
 use tracing::{info, warn};
 
-use crate::Result;
-use crate::irr::extract;
 use crate::irr::sources::{DumpFormat, IrrDumpUrl};
-use crate::irr::types::IrrObject;
+use crate::irr::types::{IrrAttribute, IrrObject, IrrRecord};
+use crate::{BgpkitCommonsError, Result};
 
 /// Statistics from a single dump-file parse pass.
 #[derive(Debug, Clone, Default)]
@@ -29,6 +27,111 @@ pub struct ParseStats {
     pub skipped: usize,
     /// Objects that failed extraction with an error.
     pub errors: usize,
+}
+
+/// Streaming iterator over source-faithful RPSL records.
+pub struct IrrRecordIter<R: Read> {
+    reader: BufReader<R>,
+    line: Vec<u8>,
+    object_lines: Vec<String>,
+    finished: bool,
+}
+
+/// Parse source-faithful RPSL records from a caller-provided reader.
+pub fn parse_reader<R: Read>(reader: R) -> IrrRecordIter<R> {
+    IrrRecordIter {
+        reader: BufReader::new(reader),
+        line: Vec::new(),
+        object_lines: Vec::new(),
+        finished: false,
+    }
+}
+
+impl<R: Read> Iterator for IrrRecordIter<R> {
+    type Item = Result<IrrRecord>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.finished {
+            return None;
+        }
+
+        loop {
+            self.line.clear();
+            match self.reader.read_until(b'\n', &mut self.line) {
+                Err(error) => {
+                    self.finished = true;
+                    return Some(Err(error.into()));
+                }
+                Ok(0) => {
+                    self.finished = true;
+                    if self.object_lines.is_empty() {
+                        return None;
+                    }
+                    return Some(parse_record_lines(std::mem::take(&mut self.object_lines)));
+                }
+                Ok(_) => {}
+            }
+
+            let line = String::from_utf8_lossy(&self.line);
+            let line = line.trim_end_matches(['\n', '\r']);
+            if line.trim().is_empty() || line.starts_with('#') || line.starts_with('%') {
+                if self.object_lines.is_empty() {
+                    continue;
+                }
+                return Some(parse_record_lines(std::mem::take(&mut self.object_lines)));
+            }
+            self.object_lines.push(line.to_string());
+        }
+    }
+}
+
+fn parse_record_lines(lines: Vec<String>) -> Result<IrrRecord> {
+    let mut attributes: Vec<IrrAttribute> = Vec::new();
+    for line in lines {
+        if line.starts_with(char::is_whitespace) {
+            let Some(attribute) = attributes.last_mut() else {
+                return Err(BgpkitCommonsError::invalid_format(
+                    "RPSL object",
+                    line,
+                    "continuation line without an attribute",
+                ));
+            };
+            attribute.value.push('\n');
+            attribute.value.push_str(line.trim());
+            continue;
+        }
+
+        let Some((name, value)) = line.split_once(':') else {
+            return Err(BgpkitCommonsError::invalid_format(
+                "RPSL object",
+                line,
+                "attribute line is missing ':'",
+            ));
+        };
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(BgpkitCommonsError::invalid_format(
+                "RPSL object",
+                line,
+                "attribute name is empty",
+            ));
+        }
+        attributes.push(IrrAttribute {
+            name: name.to_string(),
+            value: value.trim().to_string(),
+        });
+    }
+
+    let object_type = attributes
+        .first()
+        .map(|attribute| attribute.name.clone())
+        .ok_or_else(|| {
+            BgpkitCommonsError::invalid_format("RPSL object", "", "object has no attributes")
+        })?;
+    Ok(IrrRecord {
+        object_type,
+        attributes,
+    })
 }
 
 impl std::fmt::Display for ParseStats {
@@ -60,8 +163,13 @@ where
     F: FnMut(IrrObject),
 {
     info!("parsing IRR dump: {}", dump_url.url);
-    let reader = oneio::get_reader(&dump_url.url)?;
+    let reader = fetch(dump_url)?;
     parse_dump_from_reader(reader, dump_url.format, &mut handler)
+}
+
+/// Open an IRR dump for caller-controlled streaming parsing.
+pub fn fetch(dump_url: &IrrDumpUrl) -> Result<Box<dyn Read>> {
+    Ok(oneio::get_reader(&dump_url.url)?)
 }
 
 /// Parse a dump file from any reader (for testing or custom I/O).
@@ -73,112 +181,25 @@ pub fn parse_dump_from_reader<R: std::io::Read, F>(
 where
     F: FnMut(IrrObject),
 {
-    let buf_reader = BufReader::new(reader);
     let mut stats = ParseStats::default();
-
-    // RPSL objects are separated by blank lines.
-    // Comment lines (starting with # or %) are outside objects.
-    // Continuation lines start with whitespace (tab/space+).
-    //
-    // We use read_until instead of lines() because IRR dumps occasionally
-    // contain non-UTF-8 bytes (latin-1 etc.). We lossily convert to String.
-    let mut chunk = String::new();
-    let mut in_object = false;
-
-    let mut buf = Vec::new();
-    let mut reader = buf_reader;
-
-    loop {
-        buf.clear();
-        let n = reader.read_until(b'\n', &mut buf)?;
-        if n == 0 {
-            break;
-        }
-        // Lossily convert to handle non-UTF-8 bytes in legacy IRR data
-        let line = String::from_utf8_lossy(&buf);
-        let line = line.trim_end_matches('\n').trim_end_matches('\r');
-
-        if line.trim().is_empty() {
-            // Blank line: end of current object
-            if in_object && !chunk.is_empty() {
-                process_chunk(&chunk, format, handler, &mut stats);
-                chunk.clear();
-                in_object = false;
+    let _ = format;
+    for record in parse_reader(reader) {
+        stats.total_objects += 1;
+        match record.and_then(|record| record.to_typed()) {
+            Ok(Some(typed)) => {
+                stats.extracted += 1;
+                handler(typed);
             }
-            continue;
-        }
-
-        if line.starts_with('#') || line.starts_with('%') {
-            // Comment line: only ends an object if we're in one
-            if in_object && !chunk.is_empty() {
-                process_chunk(&chunk, format, handler, &mut stats);
-                chunk.clear();
-                in_object = false;
+            Ok(None) => stats.skipped += 1,
+            Err(error) => {
+                stats.errors += 1;
+                warn!("IRR parse error: {error}");
             }
-            continue;
         }
-
-        in_object = true;
-        chunk.push_str(line);
-        chunk.push('\n');
-    }
-
-    // Process trailing object (no blank line at EOF)
-    if !chunk.is_empty() {
-        process_chunk(&chunk, format, handler, &mut stats);
     }
 
     info!("IRR dump parsed: {}", stats);
     Ok(stats)
-}
-
-fn process_chunk<F>(chunk: &str, _format: DumpFormat, handler: &mut F, stats: &mut ParseStats)
-where
-    F: FnMut(IrrObject),
-{
-    stats.total_objects += 1;
-
-    // Quick check: skip comment-only chunks
-    let trimmed = chunk.trim();
-    if trimmed.is_empty() || trimmed.starts_with('#') {
-        stats.skipped += 1;
-        return;
-    }
-
-    // rpsl::parse_object requires a trailing blank line to delimit the object.
-    // Ensure the chunk ends with "\n\n".
-    let owned;
-    let text = if chunk.ends_with("\n\n") {
-        chunk
-    } else {
-        owned = format!("{chunk}\n");
-        &owned
-    };
-
-    let parsed = match parse_object(text) {
-        Ok(obj) => obj,
-        Err(e) => {
-            stats.errors += 1;
-            // Only log first few chars for debugging
-            let preview: String = chunk.chars().take(80).collect();
-            warn!("RPSL parse error: {e} (preview: {preview}...)");
-            return;
-        }
-    };
-
-    match extract::extract(&parsed) {
-        Ok(Some(typed)) => {
-            stats.extracted += 1;
-            handler(typed);
-        }
-        Ok(None) => {
-            stats.skipped += 1;
-        }
-        Err(e) => {
-            stats.errors += 1;
-            warn!("IRR extract error: {e}");
-        }
-    }
 }
 
 #[cfg(test)]

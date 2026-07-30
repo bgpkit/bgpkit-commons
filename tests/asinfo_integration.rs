@@ -117,7 +117,9 @@ fn test_irr_and_delegated_enrichment() {
             "AS13335 should have route prefixes from RADB"
         );
         assert!(
-            radb.route_prefixes.iter().any(|p| p.starts_with("1.1.1.")),
+            radb.route_prefixes
+                .iter()
+                .any(|prefix| prefix.addr().octets().starts_with(&[1, 1, 1])),
             "AS13335 RADB routes should include 1.1.1.x, got: {:?}",
             radb.route_prefixes.iter().take(5).collect::<Vec<_>>()
         );
