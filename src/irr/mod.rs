@@ -13,9 +13,9 @@
 //!   [`sources::default_sources`] for a curated default set.
 //! - [`types`] — typed Rust structs for the supported RPSL object types
 //!   ([`AutNum`], [`Route`], [`AsSet`], [`RouteSet`], [`Mntner`], [`Organisation`]).
-//! - [`stream`] — a streaming parser that reads gzipped RPSL dump files via
-//!   oneio, splits text into per-object chunks, and extracts typed objects
-//!   using the [`rpsl-rs`](https://crates.io/crates/rpsl-rs) parser.
+//! - [`stream`] — validated dump fetching plus source-faithful streaming
+//!   parsing, with compatibility conversion to typed objects through
+//!   [`rpsl-rs`](https://crates.io/crates/rpsl-rs).
 //!
 //! Downstream applications (e.g. `asninfo`) use these building blocks to build
 //! indexes, resolve as-sets, or merge data across registries.
@@ -34,22 +34,14 @@
 //! # Example
 //!
 //! ```rust,no_run
-//! use bgpkit_commons::irr;
-//! use bgpkit_commons::irr::sources::default_sources;
-//! use bgpkit_commons::irr::types::IrrObjectType;
+//! use bgpkit_commons::irr::{IrrObjectType, fetch, parse_reader, source_by_name};
 //!
-//! // Parse aut-num objects from all default sources
-//! for source in default_sources() {
-//!     for dump_url in source.dump_urls(IrrObjectType::AutNum) {
-//!         println!("Loading {} from {} ({})",
-//!             source.name, dump_url.url, dump_url.transport);
-//!
-//!         irr::stream::parse_dump(&dump_url, |obj| {
-//!             if let irr::types::IrrObject::AutNum(a) = obj {
-//!                 println!("AS{}: {} ({})", a.asn, a.as_name, a.source);
-//!             }
-//!         }).unwrap();
-//!     }
+//! let source = source_by_name("RIPE").unwrap();
+//! let reader = fetch(&source, IrrObjectType::AutNum).unwrap();
+//! let format = reader.dump_url.format;
+//! for record in parse_reader(reader, format) {
+//!     let record = record.unwrap();
+//!     println!("{} with {} attributes", record.object_type, record.attributes.len());
 //! }
 //! ```
 
@@ -62,7 +54,7 @@ pub use sources::{
     DumpFormat, IrrDumpUrl, IrrSource, Transport, all_sources, default_sources, source_by_name,
     sources_by_name,
 };
-pub use stream::{ParseStats, fetch, parse_dump, parse_dump_from_reader, parse_reader};
+pub use stream::{IrrReader, ParseStats, fetch, parse_dump, parse_dump_from_reader, parse_reader};
 pub use types::{
     AsSet, AutNum, IrrAttribute, IrrObject, IrrObjectType, IrrRecord, Mntner, Organisation, Route,
     RouteSet,

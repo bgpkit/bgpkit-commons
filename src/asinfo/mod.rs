@@ -219,7 +219,7 @@ const BGPKIT_ASNINFO_URL: &str = "https://data.bgpkit.com/commons/asinfo.jsonl";
 /// use bgpkit_commons::asinfo::IrrSourceConfig;
 ///
 /// // Only RIPE + RADB
-/// let config = IrrSourceConfig::sources(&["RIPE", "RADB"]).unwrap();
+/// let config = IrrSourceConfig::only(&["RIPE", "RADB"]).unwrap();
 /// let asinfo = AsInfoBuilder::new()
 ///     .with_irr_sources(config)
 ///     .build()
@@ -227,14 +227,25 @@ const BGPKIT_ASNINFO_URL: &str = "https://data.bgpkit.com/commons/asinfo.jsonl";
 /// ```
 #[derive(Debug, Clone, Default)]
 pub struct IrrSourceConfig {
-    /// Registry names to fetch (e.g. `["RIPE", "RADB"]`).
-    /// If empty, uses every catalogued source.
-    pub sources: Vec<String>,
+    /// Registry names to fetch. Empty is reserved for [`Self::all`].
+    sources: Vec<String>,
 }
 
 impl IrrSourceConfig {
-    /// Create a config that fetches only the named sources.
+    /// Compatibility alias for [`Self::only`].
     pub fn sources(names: &[&str]) -> Result<Self> {
+        Self::only(names)
+    }
+
+    /// Create a config that fetches exactly the named sources.
+    pub fn only(names: &[&str]) -> Result<Self> {
+        if names.is_empty() {
+            return Err(BgpkitCommonsError::invalid_format(
+                "IRR source selection",
+                "[]",
+                "explicit source selection must not be empty",
+            ));
+        }
         let selected = crate::irr::sources_by_name(names)?;
         Ok(Self {
             sources: selected
@@ -348,7 +359,7 @@ impl AsInfoProfile {
 /// use bgpkit_commons::asinfo::IrrSourceConfig;
 ///
 /// let asinfo = AsInfoBuilder::new()
-///     .with_irr_sources(IrrSourceConfig::sources(&["RIPE", "RADB"]).unwrap())
+///     .with_irr_sources(IrrSourceConfig::only(&["RIPE", "RADB"]).unwrap())
 ///     .build()
 ///     .unwrap();
 /// ```
@@ -415,7 +426,7 @@ impl AsInfoBuilder {
     /// use bgpkit_commons::asinfo::{AsInfoBuilder, IrrSourceConfig};
     ///
     /// let asinfo = AsInfoBuilder::new()
-    ///     .with_irr_sources(IrrSourceConfig::sources(&["RIPE", "RADB"]).unwrap())
+    ///     .with_irr_sources(IrrSourceConfig::only(&["RIPE", "RADB"]).unwrap())
     ///     .build()
     ///     .unwrap();
     /// ```
@@ -435,7 +446,7 @@ impl AsInfoBuilder {
         self
     }
 
-    /// Enable all optional data sources with default IRR source set.
+    /// Enable all optional data, including route prefixes from every IRR source.
     pub fn with_all(mut self) -> Self {
         self.load_as2org = true;
         self.load_population = true;
@@ -443,6 +454,8 @@ impl AsInfoBuilder {
         self.load_peeringdb = true;
         self.load_delegated = true;
         self.load_irr = true;
+        self.irr_config = IrrSourceConfig::all();
+        self.irr_route_prefixes = true;
         self
     }
 
@@ -1318,10 +1331,16 @@ ripencc|GB|asn|100|1|20200101|allocated|extra|fields|ok
         assert!(full.load_irr);
         assert!(full.irr_route_prefixes);
         assert_eq!(full.irr_sources.len(), crate::irr::all_sources().len());
+
+        let all = AsInfoBuilder::new().with_all().config().unwrap();
+        assert!(all.irr_route_prefixes);
+        assert_eq!(all.irr_sources.len(), crate::irr::all_sources().len());
     }
 
     #[test]
     fn test_custom_irr_sources_are_validated() {
+        assert!(IrrSourceConfig::only(&[]).is_err());
+        assert!(IrrSourceConfig::sources(&[]).is_err());
         assert!(IrrSourceConfig::sources(&["RIPE", "NOT-A-REGISTRY"]).is_err());
 
         let selected = IrrSourceConfig::sources(&["RIPE", "RADB"]).unwrap();

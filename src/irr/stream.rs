@@ -12,7 +12,8 @@ use std::io::{BufRead, BufReader, Read};
 
 use tracing::{info, warn};
 
-use crate::irr::sources::{DumpFormat, IrrDumpUrl};
+use crate::irr::sources::{DumpFormat, IrrDumpUrl, IrrSource, source_by_name};
+use crate::irr::types::IrrObjectType;
 use crate::irr::types::{IrrAttribute, IrrObject, IrrRecord};
 use crate::{BgpkitCommonsError, Result};
 
@@ -32,18 +33,27 @@ pub struct ParseStats {
 /// Streaming iterator over source-faithful RPSL records.
 pub struct IrrRecordIter<R: Read> {
     reader: BufReader<R>,
+    format: DumpFormat,
     line: Vec<u8>,
     object_lines: Vec<String>,
     finished: bool,
 }
 
 /// Parse source-faithful RPSL records from a caller-provided reader.
-pub fn parse_reader<R: Read>(reader: R) -> IrrRecordIter<R> {
+pub fn parse_reader<R: Read>(reader: R, format: DumpFormat) -> IrrRecordIter<R> {
     IrrRecordIter {
         reader: BufReader::new(reader),
+        format,
         line: Vec::new(),
         object_lines: Vec::new(),
         finished: false,
+    }
+}
+
+impl<R: Read> IrrRecordIter<R> {
+    /// Return the publication format associated with this record stream.
+    pub fn format(&self) -> DumpFormat {
+        self.format
     }
 }
 
@@ -163,12 +173,44 @@ where
     F: FnMut(IrrObject),
 {
     info!("parsing IRR dump: {}", dump_url.url);
-    let reader = fetch(dump_url)?;
+    let reader = fetch_dump_url(dump_url)?;
     parse_dump_from_reader(reader, dump_url.format, &mut handler)
 }
 
-/// Open an IRR dump for caller-controlled streaming parsing.
-pub fn fetch(dump_url: &IrrDumpUrl) -> Result<Box<dyn Read>> {
+/// Reader returned by [`fetch`], including the selected dump metadata.
+pub struct IrrReader {
+    /// Canonical catalog URL and publication format selected for this reader.
+    pub dump_url: IrrDumpUrl,
+    reader: Box<dyn Read>,
+}
+
+impl Read for IrrReader {
+    fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+        self.reader.read(buffer)
+    }
+}
+
+/// Validate a catalog source and open its dump for an object type.
+pub fn fetch(source: &IrrSource, object_type: IrrObjectType) -> Result<IrrReader> {
+    let source = source_by_name(source.name).ok_or_else(|| {
+        BgpkitCommonsError::invalid_format("IRR source", source.name, "unknown registry name")
+    })?;
+    let dump_url = source
+        .dump_urls(object_type)
+        .into_iter()
+        .next()
+        .ok_or_else(|| {
+            BgpkitCommonsError::invalid_format(
+                "IRR dump",
+                source.name,
+                format!("no dump for {}", object_type.key_attr()),
+            )
+        })?;
+    let reader = fetch_dump_url(&dump_url)?;
+    Ok(IrrReader { dump_url, reader })
+}
+
+fn fetch_dump_url(dump_url: &IrrDumpUrl) -> Result<Box<dyn Read>> {
     Ok(oneio::get_reader(&dump_url.url)?)
 }
 
@@ -182,8 +224,7 @@ where
     F: FnMut(IrrObject),
 {
     let mut stats = ParseStats::default();
-    let _ = format;
-    for record in parse_reader(reader) {
+    for record in parse_reader(reader, format) {
         stats.total_objects += 1;
         match record.and_then(|record| record.to_typed()) {
             Ok(Some(typed)) => {

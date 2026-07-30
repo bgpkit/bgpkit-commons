@@ -39,7 +39,7 @@ fn main() {
                 let mut c = BgpkitCommons::new();
                 let b = c
                     .asinfo_builder()
-                    .with_irr_sources(IrrSourceConfig::sources(&[*src]).unwrap());
+                    .with_irr_sources(IrrSourceConfig::only(&[*src]).unwrap());
                 c.load_asinfo_with(b).unwrap();
             },
         );

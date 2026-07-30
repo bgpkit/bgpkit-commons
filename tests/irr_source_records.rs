@@ -2,7 +2,10 @@
 
 use std::io::Cursor;
 
-use bgpkit_commons::irr::{IrrObject, all_sources, parse_reader, sources_by_name};
+use bgpkit_commons::irr::{
+    DumpFormat, IrrObject, IrrObjectType, IrrSource, Transport, all_sources, fetch, parse_reader,
+    sources_by_name,
+};
 
 #[test]
 fn raw_parser_preserves_unsupported_objects_and_attribute_order() {
@@ -14,9 +17,9 @@ remarks:        second
 source:         TEST
 ";
 
-    let records = parse_reader(Cursor::new(input))
-        .collect::<Result<Vec<_>, _>>()
-        .unwrap();
+    let records = parse_reader(Cursor::new(input), DumpFormat::WholeDb);
+    assert_eq!(records.format(), DumpFormat::WholeDb);
+    let records = records.collect::<Result<Vec<_>, _>>().unwrap();
 
     assert_eq!(records.len(), 1);
     let record = &records[0];
@@ -32,7 +35,7 @@ source:         TEST
 #[test]
 fn raw_parser_returns_malformed_objects_as_errors() {
     let input = "aut-num: AS13335\nthis is not an attribute\n";
-    let mut records = parse_reader(Cursor::new(input));
+    let mut records = parse_reader(Cursor::new(input), DumpFormat::WholeDb);
 
     assert!(records.next().unwrap().is_err());
 }
@@ -40,7 +43,10 @@ fn raw_parser_returns_malformed_objects_as_errors() {
 #[test]
 fn supported_raw_record_converts_to_existing_typed_object() {
     let input = "aut-num: AS13335\nas-name: CLOUDFLARENET\nsource: RIPE\n";
-    let record = parse_reader(Cursor::new(input)).next().unwrap().unwrap();
+    let record = parse_reader(Cursor::new(input), DumpFormat::SplitFiles)
+        .next()
+        .unwrap()
+        .unwrap();
 
     match record.to_typed().unwrap() {
         Some(IrrObject::AutNum(aut_num)) => {
@@ -65,4 +71,17 @@ fn explicit_source_selection_is_validated_and_deduplicated() {
 
     assert!(sources_by_name(&["RIPE", "NOT-A-REGISTRY"]).is_err());
     assert!(all_sources().len() > selected.len());
+}
+
+#[test]
+fn fetch_rejects_a_source_outside_the_catalog_before_network_io() {
+    let unknown = IrrSource {
+        name: "NOT-A-REGISTRY",
+        display_name: "Unknown",
+        authoritative: false,
+        transport: Transport::Https,
+        format: DumpFormat::WholeDb,
+    };
+
+    assert!(fetch(&unknown, IrrObjectType::AutNum).is_err());
 }
