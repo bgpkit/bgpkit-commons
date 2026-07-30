@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Changes
+
+* `asinfo`: `get_asinfo_map()` now fills ASNs missing from RIPE NCC `asn.txt`
+  using the five RIR delegated stats files (ARIN, RIPE NCC, APNIC, LACNIC,
+  AFRINIC). `asn.txt` lags behind new allocations by days to weeks; the
+  delegated stats are authoritative, daily-updated allocation records and
+  cover newly-allocated ASNs. Only `allocated`/`assigned` records are used
+  (reserved/available ranges excluded). Filled entries carry the allocated
+  country code and an `"UNKNOWN"` name (delegated stats do not include
+  names); optional enrichment fields (as2org, population, hegemony,
+  peeringdb) are looked up from the already-loaded datasets, so
+  `get_preferred_name()` resolves real names for filled ASNs registered in
+  PeeringDB/as2org. Fetch failures for individual files are logged and
+  files are logged and skipped (best-effort). No API or schema changes.
+* `asinfo`: optional enrichment datasets (as2org, population, hegemony,
+  peeringdb) in `get_asinfo_map()` now fail soft: a download or API error
+  (e.g., PeeringDB rate limiting without `PEERINGDB_API_KEY`) logs a warning
+  and proceeds with that dataset's fields as `None` instead of failing the
+  entire load. Core `asn.txt` + delegated-stats data still propagates load
+  errors.
+
 ## v0.12.0 - 2026-07-28
 
 ### New features
