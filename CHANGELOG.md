@@ -10,10 +10,14 @@ All notable changes to this project will be documented in this file.
   using the five RIR delegated stats files (ARIN, RIPE NCC, APNIC, LACNIC,
   AFRINIC). `asn.txt` lags behind new allocations by days to weeks; the
   delegated stats are authoritative, daily-updated allocation records and
-  cover newly-allocated ASNs. Filled entries carry the allocated country
-  code, an `"UNKNOWN"` name (delegated stats do not include names), and
-  `None` for all optional enrichment fields. Fetch failures for individual
-  files are logged and skipped (best-effort). No API or schema changes.
+  cover newly-allocated ASNs. Only `allocated`/`assigned` records are used
+  (reserved/available ranges excluded). Filled entries carry the allocated
+  country code and an `"UNKNOWN"` name (delegated stats do not include
+  names); optional enrichment fields (as2org, population, hegemony,
+  peeringdb) are looked up from the already-loaded datasets, so
+  `get_preferred_name()` resolves real names for filled ASNs registered in
+  PeeringDB/as2org. Fetch failures for individual files are logged and
+  skipped (best-effort). No API or schema changes.
 
 ## v0.12.0 - 2026-07-28
 

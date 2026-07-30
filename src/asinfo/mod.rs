@@ -354,9 +354,10 @@ pub fn get_asinfo_map_cached() -> Result<HashMap<u32, AsInfo>> {
 /// Parse RIR delegated stats text (NRO format) into an ASN -> country code map.
 ///
 /// Record format: `registry|CC|type|start|value|date|status[|extensions]`.
-/// Only `asn` records with a real (non-empty, non-`*`) country code are kept;
-/// private-use ASN ranges (RFC 6996: 64512-65534 and 4200000000+) are excluded.
-/// Ranges are expanded per-ASN (`value` is a count).
+/// Only `asn` records with `allocated`/`assigned` status and a real (non-empty,
+/// non-`*`) country code are kept; private-use ASN ranges (RFC 6996:
+/// 64512-65534 and 4200000000+) are excluded. Ranges are expanded per-ASN
+/// (`value` is a count).
 fn parse_delegated_stats(text: &str, map: &mut HashMap<u32, String>) {
     for line in text.lines() {
         let line = line.trim();
@@ -365,6 +366,10 @@ fn parse_delegated_stats(text: &str, map: &mut HashMap<u32, String>) {
         }
         let parts: Vec<&str> = line.split('|').collect();
         if parts.len() < 7 || parts[2] != "asn" {
+            continue;
+        }
+        let status = parts[6].trim();
+        if status != "allocated" && status != "assigned" {
             continue;
         }
         let cc = parts[1].trim();
@@ -387,16 +392,54 @@ fn parse_delegated_stats(text: &str, map: &mut HashMap<u32, String>) {
     }
 }
 
+/// Look up optional enrichment data (as2org, population, hegemony, peeringdb)
+/// for an ASN from already-loaded datasets. Shared by the main `asn.txt` parse
+/// loop and the delegated-stats fill so both paths behave identically.
+#[allow(clippy::type_complexity)]
+fn lookup_enrichment(
+    asn: u32,
+    as2org_utils: Option<&as2org::As2org>,
+    population_utils: Option<&population::AsnPopulation>,
+    hegemony_utils: Option<&hegemony::Hegemony>,
+    peeringdb_utils: Option<&Peeringdb>,
+) -> (
+    Option<As2orgInfo>,
+    Option<AsnPopulationData>,
+    Option<HegemonyData>,
+    Option<Network>,
+) {
+    let as2org = as2org_utils.and_then(|as2org_data| {
+        as2org_data.get_as_info(asn).map(|info| As2orgInfo {
+            name: info.name.clone(),
+            country: info.country_code.clone(),
+            org_id: info.org_id.clone(),
+            org_name: info.org_name.clone(),
+        })
+    });
+    let population = population_utils.and_then(|p| p.get(asn));
+    let hegemony = hegemony_utils.and_then(|h| h.get_score(asn).cloned());
+    let peeringdb = peeringdb_utils.and_then(|h| h.get_network(asn).cloned());
+    (as2org, population, hegemony, peeringdb)
+}
+
 /// Fill ASNs missing from the RIPE NCC `asn.txt`-derived map using the five
 /// RIR delegated stats files (authoritative allocation data, updated daily).
 ///
 /// `asn.txt` lags behind new allocations by days to weeks; the delegated
 /// stats cover them. Synthesized entries carry the allocated country code and
-/// an `"UNKNOWN"` name (delegated stats do not include names), with all
-/// optional enrichment fields left as `None`.
+/// an `"UNKNOWN"` name (delegated stats do not include names). Optional
+/// enrichment fields (as2org, population, hegemony, peeringdb) are looked up
+/// from the already-loaded datasets, so `get_preferred_name()` can still
+/// resolve a real name for filled ASNs registered in PeeringDB/as2org.
 ///
 /// Best-effort: failures fetching individual files are logged and skipped.
-fn fill_missing_asns_from_delegated_stats(asnames_map: &mut HashMap<u32, AsInfo>) {
+fn fill_missing_asns_from_delegated_stats(
+    asnames_map: &mut HashMap<u32, AsInfo>,
+    as2org_utils: Option<&as2org::As2org>,
+    population_utils: Option<&population::AsnPopulation>,
+    hegemony_utils: Option<&hegemony::Hegemony>,
+    peeringdb_utils: Option<&Peeringdb>,
+) {
     let read_text = |url: &str| -> Result<String> {
         let mut text = String::new();
         oneio::get_reader(url)?.read_to_string(&mut text)?;
@@ -415,14 +458,21 @@ fn fill_missing_asns_from_delegated_stats(asnames_map: &mut HashMap<u32, AsInfo>
     for (asn, country) in delegated {
         asnames_map.entry(asn).or_insert_with(|| {
             filled += 1;
+            let (as2org, population, hegemony, peeringdb) = lookup_enrichment(
+                asn,
+                as2org_utils,
+                population_utils,
+                hegemony_utils,
+                peeringdb_utils,
+            );
             AsInfo {
                 asn,
                 name: "UNKNOWN".to_string(),
                 country,
-                as2org: None,
-                population: None,
-                hegemony: None,
-                peeringdb: None,
+                as2org,
+                population,
+                hegemony,
+                peeringdb,
             }
         });
     }
@@ -497,21 +547,13 @@ pub fn get_asinfo_map(
                 None => return None,
             };
             let asn = asn_str.parse::<u32>().unwrap();
-            let as2org = as2org_utils.as_ref().and_then(|as2org_data| {
-                as2org_data.get_as_info(asn).map(|info| As2orgInfo {
-                    name: info.name.clone(),
-                    country: info.country_code.clone(),
-                    org_id: info.org_id.clone(),
-                    org_name: info.org_name.clone(),
-                })
-            });
-            let population = population_utils.as_ref().and_then(|p| p.get(asn));
-            let hegemony = hegemony_utils
-                .as_ref()
-                .and_then(|h| h.get_score(asn).cloned());
-            let peeringdb = peeringdb_utils
-                .as_ref()
-                .and_then(|h| h.get_network(asn).cloned());
+            let (as2org, population, hegemony, peeringdb) = lookup_enrichment(
+                asn,
+                as2org_utils.as_ref(),
+                population_utils.as_ref(),
+                hegemony_utils.as_ref(),
+                peeringdb_utils.as_ref(),
+            );
             Some(AsInfo {
                 asn,
                 name: name_str.to_string(),
@@ -530,7 +572,13 @@ pub fn get_asinfo_map(
     }
 
     info!("filling ASNs missing from RIPE NCC asn.txt via RIR delegated stats...");
-    fill_missing_asns_from_delegated_stats(&mut asnames_map);
+    fill_missing_asns_from_delegated_stats(
+        &mut asnames_map,
+        as2org_utils.as_ref(),
+        population_utils.as_ref(),
+        hegemony_utils.as_ref(),
+        peeringdb_utils.as_ref(),
+    );
 
     Ok(asnames_map)
 }
@@ -701,6 +749,25 @@ arin|US|asn|123|notacount|20200101|allocated
         let mut map = HashMap::new();
         parse_delegated_stats(text, &mut map);
         assert!(map.is_empty());
+    }
+
+    #[test]
+    fn test_parse_delegated_stats_status_filter() {
+        // reserved/available records are dropped even when they carry a
+        // real-looking country code; only allocated/assigned are kept
+        let text = "\
+arin|US|asn|300000|1|20200101|reserved
+arin|US|asn|300001|1|20200101|available
+arin|US|asn|300002|1|20200101|allocated
+arin|US|asn|300003|1|20200101|assigned
+";
+        let mut map = HashMap::new();
+        parse_delegated_stats(text, &mut map);
+        assert!(!map.contains_key(&300000));
+        assert!(!map.contains_key(&300001));
+        assert_eq!(map.get(&300002).map(String::as_str), Some("US"));
+        assert_eq!(map.get(&300003).map(String::as_str), Some("US"));
+        assert_eq!(map.len(), 2);
     }
 
     #[test]
