@@ -481,7 +481,13 @@ fn fill_missing_asns_from_delegated_stats(
         filled
     );
 }
-
+/// Loads the ASN information map and returns it.
+///
+/// The core RIPE NCC `asn.txt` data (plus the RIR delegated-stats fill) is
+/// required: load failures propagate as `Err`. Optional enrichment datasets
+/// (as2org, population, hegemony, peeringdb) fail soft — a failed download or
+/// API error (e.g., PeeringDB rate limiting without `PEERINGDB_API_KEY`)
+/// logs a warning and proceeds with that dataset's fields left as `None`.
 pub fn get_asinfo_map(
     load_as2org: bool,
     load_population: bool,
@@ -512,25 +518,52 @@ pub fn get_asinfo_map(
 
     let as2org_utils = if load_as2org {
         info!("loading as2org data from CAIDA...");
-        Some(as2org::As2org::new(None)?)
+        match as2org::As2org::new(None) {
+            Ok(data) => Some(data),
+            Err(e) => {
+                warn!("failed to load as2org data, proceeding without it: {e}");
+                None
+            }
+        }
     } else {
         None
     };
     let population_utils = if load_population {
         info!("loading ASN population data from APNIC...");
-        Some(population::AsnPopulation::new()?)
+        match population::AsnPopulation::new() {
+            Ok(data) => Some(data),
+            Err(e) => {
+                warn!("failed to load population data, proceeding without it: {e}");
+                None
+            }
+        }
     } else {
         None
     };
     let hegemony_utils = if load_hegemony {
         info!("loading IIJ IHR hegemony score data from BGPKIT mirror...");
-        Some(hegemony::Hegemony::new()?)
+        match hegemony::Hegemony::new() {
+            Ok(data) => Some(data),
+            Err(e) => {
+                warn!("failed to load hegemony data, proceeding without it: {e}");
+                None
+            }
+        }
     } else {
         None
     };
     let peeringdb_utils = if load_peeringdb {
         info!("loading peeringdb data...");
-        Some(Peeringdb::new_networks_only()?)
+        match Peeringdb::new_networks_only() {
+            Ok(data) => Some(data),
+            Err(e) => {
+                warn!(
+                    "failed to load peeringdb data, proceeding without it: {e} \
+                     (hint: set PEERINGDB_API_KEY to avoid rate limiting)"
+                );
+                None
+            }
+        }
     } else {
         None
     };

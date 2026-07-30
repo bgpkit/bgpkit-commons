@@ -17,7 +17,13 @@ All notable changes to this project will be documented in this file.
   peeringdb) are looked up from the already-loaded datasets, so
   `get_preferred_name()` resolves real names for filled ASNs registered in
   PeeringDB/as2org. Fetch failures for individual files are logged and
-  skipped (best-effort). No API or schema changes.
+  files are logged and skipped (best-effort). No API or schema changes.
+* `asinfo`: optional enrichment datasets (as2org, population, hegemony,
+  peeringdb) in `get_asinfo_map()` now fail soft: a download or API error
+  (e.g., PeeringDB rate limiting without `PEERINGDB_API_KEY`) logs a warning
+  and proceeds with that dataset's fields as `None` instead of failing the
+  entire load. Core `asn.txt` + delegated-stats data still propagates load
+  errors.
 
 ## v0.12.0 - 2026-07-28
 
