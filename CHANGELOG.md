@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Changes
+
+* `asinfo`: `get_asinfo_map()` now fills ASNs missing from RIPE NCC `asn.txt`
+  using the five RIR delegated stats files (ARIN, RIPE NCC, APNIC, LACNIC,
+  AFRINIC). `asn.txt` lags behind new allocations by days to weeks; the
+  delegated stats are authoritative, daily-updated allocation records and
+  cover newly-allocated ASNs. Filled entries carry the allocated country
+  code, an `"UNKNOWN"` name (delegated stats do not include names), and
+  `None` for all optional enrichment fields. Fetch failures for individual
+  files are logged and skipped (best-effort). No API or schema changes.
+
 ## v0.12.0 - 2026-07-28
 
 ### New features
