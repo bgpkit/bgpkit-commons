@@ -61,10 +61,11 @@ The canonical parser accepts a reader and yields source records:
 pub fn parse_reader<R: Read>(
     reader: R,
     format: DumpFormat,
-) -> impl Iterator<Item = Result<IrrRecord, IrrError>>;
+) -> impl Iterator<Item = Result<IrrRecord>>;
 ```
 
-`IrrRecord` represents one RPSL object without AsInfo policy:
+Errors use the crate-wide `BgpkitCommonsError`/`Result` types. `IrrRecord`
+represents one RPSL object without AsInfo policy:
 
 ```rust
 pub struct IrrRecord {
@@ -137,7 +138,7 @@ Source selection changes which registries are fetched; it does not establish a p
 PR #39 currently fetches and parses RIR delegated-statistics files inside `asinfo`. Move that work into a small `delegated` source module so it can be used without AsInfo.
 
 ```rust
-pub fn parse_reader<R: Read>(reader: R) -> impl Iterator<Item = Result<DelegatedRecord, DelegatedError>>;
+pub fn parse_reader<R: Read>(reader: R) -> impl Iterator<Item = Result<DelegatedRecord>>;
 
 pub struct DelegatedRecord {
     pub registry: String,
@@ -147,10 +148,16 @@ pub struct DelegatedRecord {
     pub value: String,
     pub date: String,
     pub status: String,
+    pub extensions: Vec<String>,
 }
 ```
 
-The source parser returns delegated records as published. It does not fill missing ASNs, replace names or countries, or decide which statuses belong in AsInfo. Fetching the five RIR files is also exposed by the `delegated` module.
+Errors use the crate-wide `BgpkitCommonsError`/`Result` types (there is no
+module-specific error type). The `extensions` field carries any extra
+pipe-delimited fields beyond the standard seven (the NRO extended format).
+The source parser returns delegated records as published. It does not fill
+missing ASNs, replace names or countries, or decide which statuses belong in
+AsInfo. Fetching the five RIR files is also exposed by the `delegated` module.
 
 Filtering to ASN allocation records and constructing `DelegatedInfo` happens in the AsInfo serving layer.
 
@@ -179,7 +186,12 @@ pub struct AsInfo {
 }
 ```
 
-Serde defaults are required so existing cached JSON without `delegated` or `irr` remains readable. This fixes the current PR #39 failure: `missing field 'irr'`.
+Serde defaults are required so existing cached JSON without `delegated` or `irr`
+remains readable. This fixes the current PR #39 failure: `missing field 'irr'`.
+All optional enrichment fields (`as2org`, `population`, `hegemony`, `peeringdb`,
+`delegated`) carry `#[serde(default, skip_serializing_if = "Option::is_none")]`
+so that newly-serialized records — which omit absent fields — round-trip
+through `AsInfo::deserialize` without `missing field` errors.
 
 Serialization includes only data that exists for that ASN:
 
@@ -220,7 +232,13 @@ pub struct DelegatedInfo {
 
 There may be multiple entries for an ASN because different IRR registries can publish different values. The library does not choose a trusted IRR registry or overwrite the existing `name`, `country`, or other source fields with IRR values.
 
-Delegated data is likewise retained in `delegated`; it does not overwrite the base `name` or `country` fields.
+Delegated data is likewise retained in `delegated`; it does not overwrite the
+base `name` or `country` fields. For ASNs absent from `asn.txt` (newly
+allocated, covered by delegated stats but lagging in `asn.txt`), the serving
+layer creates an entry with `name: "UNKNOWN"` and the delegated country as the
+base `country`. When the same ASN appears in more than one RIR delegated file
+(possible during inter-RIR transfers), the first record wins; file order is
+the fixed order of `RIR_DELEGATED_STATS_URLS`.
 
 ## 6. AsInfo profiles
 
