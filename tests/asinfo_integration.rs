@@ -99,10 +99,24 @@ fn test_irr_and_delegated_enrichment() {
     let ripe_entry = cf.irr.iter().find(|i| i.source == "RIPE");
     assert!(ripe_entry.is_some(), "AS13335 should have RIPE IRR entry");
     let ripe = ripe_entry.unwrap();
+    // AS13335's RIPE aut-num is registered in the ripe-nonauth source, which
+    // is not part of the ripe split files the catalog fetches, so the RIPE
+    // entry is built from route objects and carries no as_name. Verify the
+    // route prefixes instead.
     assert!(
-        ripe.as_name.contains("CLOUDFLARE"),
-        "AS13335 RIPE as_name should contain CLOUDFLARE, got: {}",
-        ripe.as_name
+        !ripe.route_prefixes.is_empty(),
+        "AS13335 RIPE entry should have route prefixes from ripe.db.route"
+    );
+
+    // Aut-num enrichment is verified on AS3333, whose aut-num is in the ripe
+    // source with a stable as-name.
+    let ncc = commons.asinfo_get(3333).unwrap().unwrap();
+    let ncc_ripe = ncc.irr.iter().find(|i| i.source == "RIPE");
+    assert!(ncc_ripe.is_some(), "AS3333 should have RIPE IRR entry");
+    assert_eq!(
+        ncc_ripe.unwrap().as_name,
+        "RIPE-NCC-AS",
+        "AS3333 RIPE as_name should be RIPE-NCC-AS"
     );
 
     // === Route prefixes ===
