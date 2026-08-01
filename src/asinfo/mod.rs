@@ -152,13 +152,15 @@ pub struct AsInfo {
     pub asn: u32,
     pub name: String,
     pub country: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Serde defaults on every optional field keep newly-serialized records
+    /// (which omit absent fields) readable by the same struct on deserialization.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub as2org: Option<As2orgInfo>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub population: Option<AsnPopulationData>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hegemony: Option<HegemonyData>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub peeringdb: Option<Network>,
     /// RIR delegated-stats allocation data. Present for every allocated ASN.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -688,9 +690,33 @@ fn fill_delegated_data(
             Err(e) => warn!("failed to load delegated stats from {}: {}", url, e),
         }
     }
+    attach_delegated_data(
+        asnames_map,
+        delegated,
+        as2org_utils,
+        population_utils,
+        hegemony_utils,
+        peeringdb_utils,
+    );
+}
 
-    // Attach delegated data to existing entries, and create new entries for
-    // ASNs missing from asn.txt.
+/// Attach per-ASN [`DelegatedInfo`] values to the map, creating `AsInfo`
+/// entries for ASNs absent from `asn.txt` (with `name: "UNKNOWN"` and the
+/// delegated country as the base country).
+///
+/// Only the `delegated` field of existing entries is modified; the base `name`
+/// and `country` fields are never overwritten. When the same ASN appears in
+/// multiple RIR files (possible during inter-RIR transfers), the first
+/// [`DelegatedInfo`] encountered wins; file order is the order of
+/// [`crate::delegated::RIR_DELEGATED_STATS_URLS`].
+fn attach_delegated_data(
+    asnames_map: &mut HashMap<u32, AsInfo>,
+    delegated: HashMap<u32, DelegatedInfo>,
+    as2org_utils: Option<&as2org::As2org>,
+    population_utils: Option<&population::AsnPopulation>,
+    hegemony_utils: Option<&hegemony::Hegemony>,
+    peeringdb_utils: Option<&Peeringdb>,
+) {
     let mut new_entries = 0usize;
     let mut attached = 0usize;
     for (asn, delegated_info) in delegated {
@@ -844,7 +870,7 @@ fn enrich_from_irr(
                             for &member_asn in &s.members {
                                 let entry = source_map.entry(member_asn).or_default();
                                 if entry.source.is_empty() {
-                                    entry.source = sn.clone();
+                                    entry.source = s.source.clone();
                                 }
                                 entry.member_of_sets.push(set_name.clone());
                             }
@@ -862,7 +888,22 @@ fn enrich_from_irr(
         }
     }
 
-    // Attach per-source IrrAsnInfo to each ASN
+    attach_irr_data(asnames_map, per_source, irr_sources);
+}
+
+/// Attach per-source [`IrrAsnInfo`] values to each ASN.
+///
+/// Only the `irr` field of existing entries is modified; the base `name` and
+/// `country` fields are never overwritten. Entries are produced in the order
+/// of `irr_sources`, one per registry that has any data for the ASN.
+fn attach_irr_data(
+    asnames_map: &mut HashMap<u32, AsInfo>,
+    per_source: std::collections::HashMap<
+        String,
+        std::collections::HashMap<u32, IrrAsnInfoBuilder>,
+    >,
+    irr_sources: &[crate::irr::IrrSource],
+) {
     let mut irr_attached = 0usize;
 
     for (asn, info) in asnames_map.iter_mut() {
@@ -1360,5 +1401,102 @@ ripencc|GB|asn|100|1|20200101|allocated|extra|fields|ok
                 .collect::<Vec<_>>(),
             vec!["RIPE", "RADB"]
         );
+    }
+
+    #[test]
+    fn delegated_enrichment_never_overwrites_name_or_country() {
+        let mut map = HashMap::new();
+        map.insert(
+            13335,
+            AsInfo {
+                asn: 13335,
+                name: "CLOUDFLARENET".to_string(),
+                country: "US".to_string(),
+                as2org: None,
+                population: None,
+                hegemony: None,
+                peeringdb: None,
+                delegated: None,
+                irr: Vec::new(),
+            },
+        );
+
+        let mut delegated = HashMap::new();
+        delegated.insert(
+            13335,
+            DelegatedInfo {
+                registry: "ripencc".to_string(),
+                country: "GB".to_string(),
+                date: "20260722".to_string(),
+                status: "allocated".to_string(),
+            },
+        );
+        // ASN missing from asn.txt: a new entry is created, not an overwrite.
+        delegated.insert(
+            400644,
+            DelegatedInfo {
+                registry: "arin".to_string(),
+                country: "US".to_string(),
+                date: "20200101".to_string(),
+                status: "allocated".to_string(),
+            },
+        );
+
+        attach_delegated_data(&mut map, delegated, None, None, None, None);
+
+        // Existing entry: base fields untouched, delegated attached.
+        let existing = &map[&13335];
+        assert_eq!(existing.name, "CLOUDFLARENET");
+        assert_eq!(existing.country, "US");
+        assert_eq!(existing.delegated.as_ref().unwrap().registry, "ripencc");
+
+        // New entry: UNKNOWN name, delegated country as base country.
+        let new_entry = &map[&400644];
+        assert_eq!(new_entry.name, "UNKNOWN");
+        assert_eq!(new_entry.country, "US");
+        assert_eq!(new_entry.delegated.as_ref().unwrap().registry, "arin");
+    }
+
+    #[test]
+    fn irr_enrichment_never_overwrites_name_or_country() {
+        let mut map = HashMap::new();
+        map.insert(
+            13335,
+            AsInfo {
+                asn: 13335,
+                name: "CLOUDFLARENET".to_string(),
+                country: "US".to_string(),
+                as2org: None,
+                population: None,
+                hegemony: None,
+                peeringdb: None,
+                delegated: None,
+                irr: Vec::new(),
+            },
+        );
+
+        // A single source with data for AS13335 (as_name disagrees with the
+        // base name on purpose: IRR must not replace the base fields).
+        let mut per_source: std::collections::HashMap<
+            String,
+            std::collections::HashMap<u32, IrrAsnInfoBuilder>,
+        > = std::collections::HashMap::new();
+        let mut builder = IrrAsnInfoBuilder::default();
+        builder.source = "RIPE".to_string();
+        builder.as_name = "CLOUDFLARE-NET".to_string();
+        per_source.insert("RIPE".to_string(), [(13335, builder)].into_iter().collect());
+
+        let ripe = crate::irr::sources::all_sources()
+            .into_iter()
+            .find(|source| source.name == "RIPE")
+            .unwrap();
+        attach_irr_data(&mut map, per_source, &[ripe]);
+
+        let info = &map[&13335];
+        assert_eq!(info.name, "CLOUDFLARENET");
+        assert_eq!(info.country, "US");
+        assert_eq!(info.irr.len(), 1);
+        assert_eq!(info.irr[0].as_name, "CLOUDFLARE-NET");
+        assert_eq!(info.irr[0].source, "RIPE");
     }
 }
