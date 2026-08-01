@@ -17,7 +17,19 @@ All notable changes to this project will be documented in this file.
   peeringdb) are looked up from the already-loaded datasets, so
   `get_preferred_name()` resolves real names for filled ASNs registered in
   PeeringDB/as2org. Fetch failures for individual files are logged and
-  files are logged and skipped (best-effort). No API or schema changes.
+  skipped (best-effort).
+* New source-faithful `irr` and `delegated` parsing APIs separate acquisition
+  and parsing from AsInfo enrichment policy. IRR records preserve attribute
+  order and unsupported object classes; explicit IRR source selections are
+  validated, while `with_irr()` loads every catalogued source.
+* `asinfo`: added `Minimum`, `Default`, and `Full` loading profiles. `Default`
+  matches the existing asninfo v1 sources; `Full` adds delegated statistics,
+  all IRR sources, and typed `Ipv4Net`/`Ipv6Net` route prefixes.
+* `asinfo`: `load_asinfo(bool, bool, bool, bool)` is deprecated in favor of
+  `load_asinfo_with_profile()` / `load_asinfo_with()`; the boolean form remains
+  as a compatibility shim with identical behavior.
+* `asinfo`: absent enrichment fields are omitted during serialization, while
+  old cache records without `delegated` or `irr` remain deserializable.
 * `asinfo`: optional enrichment datasets (as2org, population, hegemony,
   peeringdb) in `get_asinfo_map()` now fail soft: a download or API error
   (e.g., PeeringDB rate limiting without `PEERINGDB_API_KEY`) logs a warning

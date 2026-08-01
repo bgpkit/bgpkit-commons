@@ -26,7 +26,9 @@ oneio = { version = "0.24.0", optional = true, features = [
     "xz",
     "reqwest-gzip",
     "rustls",
+    "ftp",
 ] }
+rpsl-rs = { version = "3.0", optional = true }
 regex = { version = "1", optional = true }
 serde_json = { version = "1", optional = true }
 tracing = { version = "0.1", optional = true }
@@ -37,14 +39,16 @@ bcder = { version = "0.7", optional = true }
 [dev-dependencies]
 tracing-subscriber = "0.3"
 serde_json = "1"
-oneio = { version = "0.24.0", features = ["json", "xz", "reqwest-gzip", "rustls"] }
+oneio = { version = "0.24.0", features = ["json", "xz", "reqwest-gzip", "rustls", "ftp"] }
 
 
 [features]
 default = ["all"]
 
 # Module features
-asinfo = ["peeringdb", "oneio", "serde_json", "tracing", "chrono", "regex"]
+irr = ["oneio", "rpsl-rs", "ipnet", "serde_json", "tracing"]
+delegated = ["oneio", "tracing"]
+asinfo = ["peeringdb", "irr", "delegated", "oneio", "serde_json", "tracing", "chrono", "regex"]
 as2rel = ["oneio", "serde_json", "tracing"]
 bogons = ["oneio", "ipnet", "regex", "chrono"]
 countries = ["oneio"]
@@ -53,7 +57,7 @@ peeringdb = ["oneio", "serde_json", "tracing"]
 rpki = ["oneio", "ipnet", "ipnet-trie", "chrono", "tracing", "tar", "serde_json", "zstd", "bcder"]
 
 # Convenience feature to enable all modules
-all = ["asinfo", "as2rel", "bogons", "countries", "mrt_collectors", "peeringdb", "rpki"]
+all = ["asinfo", "as2rel", "bogons", "countries", "delegated", "irr", "mrt_collectors", "peeringdb", "rpki"]
 
 # Example configurations - specify required features for each example
 [[example]]
@@ -75,6 +79,14 @@ required-features = ["rpki"]
 [[example]]
 name = "rpkispools"
 required-features = ["rpki"]
+
+[[example]]
+name = "gen_full_jsonl"
+required-features = ["asinfo"]
+
+[[example]]
+name = "bench_asinfo"
+required-features = ["asinfo"]
 
 [lints.clippy]
 uninlined_format_args = "allow"
