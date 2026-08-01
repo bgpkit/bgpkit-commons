@@ -25,6 +25,9 @@ All notable changes to this project will be documented in this file.
 * `asinfo`: added `Minimum`, `Default`, and `Full` loading profiles. `Default`
   matches the existing asninfo v1 sources; `Full` adds delegated statistics,
   all IRR sources, and typed `Ipv4Net`/`Ipv6Net` route prefixes.
+* `asinfo`: `load_asinfo(bool, bool, bool, bool)` is deprecated in favor of
+  `load_asinfo_with_profile()` / `load_asinfo_with()`; the boolean form remains
+  as a compatibility shim with identical behavior.
 * `asinfo`: absent enrichment fields are omitted during serialization, while
   old cache records without `delegated` or `irr` remain deserializable.
 * `asinfo`: optional enrichment datasets (as2org, population, hegemony,

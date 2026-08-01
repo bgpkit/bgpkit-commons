@@ -8,7 +8,7 @@ fn test_basic_info() {
 
     // Load AS information (core asn.txt only).
     commons
-        .load_asinfo_with_profile(Default::default())
+        .load_asinfo_with_profile(bgpkit_commons::asinfo::AsInfoProfile::Minimum)
         .unwrap();
 
     // Assert that the AS name for AS number 3333 is correct.
@@ -80,9 +80,6 @@ fn test_loading_cached() {
 #[ignore = "network: downloads asn.txt + delegated stats + IRR dumps (~80MB total)"]
 fn test_irr_and_delegated_enrichment() {
     let mut commons = bgpkit_commons::BgpkitCommons::new();
-    commons
-        .load_asinfo_with_profile(bgpkit_commons::asinfo::AsInfoProfile::Full)
-        .unwrap();
     commons
         .load_asinfo_with_profile(bgpkit_commons::asinfo::AsInfoProfile::Full)
         .unwrap();

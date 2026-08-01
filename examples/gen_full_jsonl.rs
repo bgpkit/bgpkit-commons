@@ -9,17 +9,15 @@ fn main() {
     // Variant 1: full IRR but WITHOUT route prefixes (default)
     {
         eprintln!("Loading WITHOUT route prefixes...");
-        let mut commons = BgpkitCommons::new();
-        let _builder = AsInfoBuilder::new()
+        let builder = AsInfoBuilder::new()
             .with_as2org()
             .with_population()
             .with_hegemony()
             .with_peeringdb()
             .with_delegated()
             .with_irr();
-        commons
-            .load_asinfo_with_profile(bgpkit_commons::asinfo::AsInfoProfile::Full)
-            .unwrap();
+        let mut commons = BgpkitCommons::new();
+        commons.load_asinfo_with(builder).unwrap();
 
         let all = commons.asinfo_all().unwrap();
         let mut f = std::fs::File::create("/tmp/asinfo_no_routes.jsonl").unwrap();
@@ -38,8 +36,7 @@ fn main() {
     // Variant 2: full IRR WITH route prefixes
     {
         eprintln!("Loading WITH route prefixes...");
-        let mut commons = BgpkitCommons::new();
-        let _builder = AsInfoBuilder::new()
+        let builder = AsInfoBuilder::new()
             .with_as2org()
             .with_population()
             .with_hegemony()
@@ -47,9 +44,8 @@ fn main() {
             .with_delegated()
             .with_irr()
             .with_irr_route_prefixes();
-        commons
-            .load_asinfo_with_profile(bgpkit_commons::asinfo::AsInfoProfile::Full)
-            .unwrap();
+        let mut commons = BgpkitCommons::new();
+        commons.load_asinfo_with(builder).unwrap();
 
         let all = commons.asinfo_all().unwrap();
         let mut f = std::fs::File::create("/tmp/asinfo_with_routes.jsonl").unwrap();

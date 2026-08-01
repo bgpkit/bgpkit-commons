@@ -553,6 +553,39 @@ impl BgpkitCommons {
         Ok(())
     }
 
+    /// Load AS name and country data with optional enrichment sources.
+    ///
+    /// Compatibility shim retained from the pre-v0.12 boolean-argument API.
+    /// Maps to the equivalent [`AsInfoBuilder`](crate::asinfo::AsInfoBuilder)
+    /// configuration with identical behavior. Prefer
+    /// [`BgpkitCommons::load_asinfo_with_profile`] or
+    /// [`BgpkitCommons::load_asinfo_with`].
+    #[cfg(feature = "asinfo")]
+    #[deprecated(note = "use load_asinfo_with_profile() or load_asinfo_with() instead")]
+    pub fn load_asinfo(
+        &mut self,
+        load_as2org: bool,
+        load_population: bool,
+        load_hegemony: bool,
+        load_peeringdb: bool,
+    ) -> Result<()> {
+        let mut builder = crate::asinfo::AsInfoBuilder::new();
+        if load_as2org {
+            builder = builder.with_as2org();
+        }
+        if load_population {
+            builder = builder.with_population();
+        }
+        if load_hegemony {
+            builder = builder.with_hegemony();
+        }
+        if load_peeringdb {
+            builder = builder.with_peeringdb();
+        }
+        self.asinfo = Some(builder.build()?);
+        Ok(())
+    }
+
     #[cfg(feature = "asinfo")]
     pub fn load_asinfo_cached(&mut self) -> Result<()> {
         self.asinfo = Some(crate::asinfo::AsInfoUtils::new_from_cached()?);

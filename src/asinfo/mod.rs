@@ -817,7 +817,11 @@ fn enrich_from_irr(
                                 entry.mnt_by = mnt.clone();
                             }
                         }
-                        IrrObject::Route(r) => {
+                        // Route/route6 prefixes are collected only when
+                        // explicitly enabled. WholeDb dumps still download once
+                        // (URL dedup above) but route objects are skipped here
+                        // in the default no-prefix mode.
+                        IrrObject::Route(r) if collect_route_prefixes => {
                             let entry = source_map.entry(r.origin).or_default();
                             if entry.source.is_empty() {
                                 entry.source = r.source.clone();
@@ -826,7 +830,7 @@ fn enrich_from_irr(
                                 entry.route_prefixes.push(prefix);
                             }
                         }
-                        IrrObject::Route6(r) => {
+                        IrrObject::Route6(r) if collect_route_prefixes => {
                             let entry = source_map.entry(r.origin).or_default();
                             if entry.source.is_empty() {
                                 entry.source = r.source.clone();
