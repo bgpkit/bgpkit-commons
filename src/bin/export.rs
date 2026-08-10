@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use bgpkit_commons::export;
 use bgpkit_commons::{BgpkitCommons, asinfo::AsInfoBuilder};
-use clap::{Parser, Subcommand};
+use clap::Parser;
 
 #[derive(Parser)]
 #[command(
@@ -48,14 +48,7 @@ struct Cli {
     /// Also write asninfo.jsonl (legacy merged AsInfo JSONL)
     #[arg(long)]
     with_asninfo_jsonl: bool,
-
-    /// Subcommand selector (reserved for future use)
-    #[command(subcommand)]
-    _command: Option<Commands>,
 }
-
-#[derive(Subcommand)]
-enum Commands {}
 
 fn main() {
     tracing_subscriber::fmt().with_ansi(false).init();

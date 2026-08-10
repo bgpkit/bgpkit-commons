@@ -17,8 +17,8 @@ use std::path::Path;
 use std::sync::Arc;
 
 use arrow::array::{
-    ArrayRef, BooleanArray, Date32Array, Float64Array, Int64Array, ListArray, RecordBatch,
-    StringArray, UInt8Array, UInt32Array,
+    ArrayRef, BooleanArray, Date32Array, ListArray, RecordBatch, StringArray, UInt8Array,
+    UInt32Array,
 };
 use arrow::buffer::{NullBuffer, OffsetBuffer};
 use arrow::datatypes::{DataType, Field, Schema};
@@ -80,20 +80,8 @@ fn u32_array_nn(data: Vec<u32>) -> ArrayRef {
     Arc::new(UInt32Array::from(data))
 }
 
-fn u8_array(data: Vec<Option<u8>>) -> ArrayRef {
-    Arc::new(UInt8Array::from(data))
-}
-
 fn u8_array_nn(data: Vec<u8>) -> ArrayRef {
     Arc::new(UInt8Array::from(data))
-}
-
-fn i64_array(data: Vec<Option<i64>>) -> ArrayRef {
-    Arc::new(Int64Array::from(data))
-}
-
-fn f64_array(data: Vec<Option<f64>>) -> ArrayRef {
-    Arc::new(Float64Array::from(data))
 }
 
 fn bool_array(data: Vec<Option<bool>>) -> ArrayRef {
@@ -391,11 +379,6 @@ pub fn iana_bogons(dir: impl AsRef<Path>, commons: &BgpkitCommons) -> WriteResul
 
 /// Export AS relationship data to `<dir>/as_relationships.parquet`.
 pub fn as_relationships(dir: impl AsRef<Path>, commons: &BgpkitCommons) -> WriteResult {
-    let as2rel = commons
-        .as2rel
-        .as_ref()
-        .ok_or_else(|| ExportError::ModuleNotLoaded("as2rel".into()))?;
-
     let schema = Arc::new(Schema::new(vec![
         Field::new("asn1", DataType::UInt32, false),
         Field::new("asn2", DataType::UInt32, false),
@@ -412,7 +395,10 @@ pub fn as_relationships(dir: impl AsRef<Path>, commons: &BgpkitCommons) -> Write
     let mut peers = Vec::new();
     let mut afs = Vec::new();
 
-    for entry in as2rel.all_entries() {
+    for entry in commons
+        .as2rel_all_entries()
+        .map_err(|e| ExportError::ModuleNotLoaded(e.to_string()))?
+    {
         asn1s.push(entry.asn1);
         asn2s.push(entry.asn2);
         rels.push(
@@ -446,10 +432,9 @@ pub fn as_relationships(dir: impl AsRef<Path>, commons: &BgpkitCommons) -> Write
 
 /// Export AS names (RIPE asn.txt core) to `<dir>/asn_names.parquet`.
 pub fn asn_names(dir: impl AsRef<Path>, commons: &BgpkitCommons) -> WriteResult {
-    let asinfo = commons
-        .asinfo
-        .as_ref()
-        .ok_or_else(|| ExportError::ModuleNotLoaded("asinfo".into()))?;
+    let all = commons
+        .asinfo_all()
+        .map_err(|e| ExportError::ModuleNotLoaded(e.to_string()))?;
 
     let schema = Arc::new(Schema::new(vec![
         Field::new("asn", DataType::UInt32, false),
@@ -461,7 +446,7 @@ pub fn asn_names(dir: impl AsRef<Path>, commons: &BgpkitCommons) -> WriteResult 
     let mut names = Vec::new();
     let mut countries = Vec::new();
 
-    let mut sorted: Vec<_> = asinfo.asinfo_map.values().collect();
+    let mut sorted: Vec<_> = all.values().collect();
     sorted.sort_by_key(|a| a.asn);
 
     for info in sorted {
@@ -562,10 +547,4 @@ pub fn rir_delegated(dir: impl AsRef<Path>) -> WriteResult {
 
     write_parquet(dir.as_ref().join("rir_delegated.parquet"), batch)?;
     Ok(())
-}
-
-// Suppress unused warnings for helper functions used only in feature-gated code
-#[allow(dead_code)]
-fn _suppress_unused() {
-    let _ = (i64_array, f64_array, u8_array);
 }

@@ -273,4 +273,17 @@ impl BgpkitCommons {
 
         Ok(self.as2rel.as_ref().unwrap().lookup_pair(asn1, asn2))
     }
+
+    /// Returns an iterator over all unique AS relationship entries.
+    ///
+    /// Requires the `as2rel` module to be loaded via [`load_as2rel`](Self::load_as2rel).
+    #[cfg(feature = "export")]
+    pub fn as2rel_all_entries(&self) -> Result<impl Iterator<Item = As2relExportEntry> + '_> {
+        self.as2rel
+            .as_ref()
+            .ok_or_else(|| {
+                BgpkitCommonsError::module_not_loaded(modules::AS2REL, load_methods::LOAD_AS2REL)
+            })
+            .map(|data| data.all_entries())
+    }
 }
