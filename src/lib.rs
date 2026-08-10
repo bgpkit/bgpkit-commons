@@ -223,6 +223,9 @@ pub mod peeringdb;
 #[cfg(feature = "rpki")]
 pub mod rpki;
 
+#[cfg(feature = "export")]
+pub mod export;
+
 pub mod errors;
 
 // Re-export error types for convenience

@@ -181,6 +181,56 @@ impl As2relBgpkit {
 
         (v4_entries, v6_entries)
     }
+
+    /// Iterate over all unique relationship entries.
+    ///
+    /// Each (asn1, asn2) pair appears once in canonical order (asn1 < asn2).
+    /// Returns both IPv4 and IPv6 entries, tagged by address family.
+    #[allow(dead_code)]
+    pub fn all_entries(&self) -> impl Iterator<Item = As2relExportEntry> + '_ {
+        let v4 = self
+            .v4_rels_map
+            .iter()
+            .filter(move |((a, b), _)| *a < *b)
+            .flat_map(|(_, set)| {
+                set.iter().map(move |e| As2relExportEntry {
+                    asn1: e.asn1,
+                    asn2: e.asn2,
+                    rel: e.rel,
+                    paths_count: e.paths_count,
+                    peers_count: e.peers_count,
+                    address_family: 4,
+                })
+            })
+            .collect::<Vec<_>>();
+        let v6 = self
+            .v6_rels_map
+            .iter()
+            .filter(move |((a, b), _)| *a < *b)
+            .flat_map(|(_, set)| {
+                set.iter().map(move |e| As2relExportEntry {
+                    asn1: e.asn1,
+                    asn2: e.asn2,
+                    rel: e.rel,
+                    paths_count: e.paths_count,
+                    peers_count: e.peers_count,
+                    address_family: 6,
+                })
+            })
+            .collect::<Vec<_>>();
+        v4.into_iter().chain(v6)
+    }
+}
+
+/// A single AS relationship entry for export, with address family tag.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct As2relExportEntry {
+    pub asn1: u32,
+    pub asn2: u32,
+    pub rel: AsRelationship,
+    pub paths_count: u32,
+    pub peers_count: u32,
+    pub address_family: u8,
 }
 
 impl LazyLoadable for As2relBgpkit {
