@@ -39,6 +39,8 @@ bcder = { version = "0.7", optional = true }
 # Export-only deps (behind `export` feature)
 arrow = { version = "59", optional = true }
 parquet = { version = "59", optional = true }
+clap = { version = "4", features = ["derive"], optional = true }
+tracing-subscriber = { version = "0.3", optional = true }
 
 [dev-dependencies]
 tracing-subscriber = "0.3"
@@ -61,7 +63,7 @@ peeringdb = ["oneio", "serde_json", "tracing"]
 rpki = ["oneio", "ipnet", "ipnet-trie", "chrono", "tracing", "tar", "serde_json", "zstd", "bcder"]
 
 # Export feature: enables Parquet export of all commons data sources
-export = ["dep:arrow", "dep:parquet", "all"]
+export = ["dep:arrow", "dep:parquet", "dep:clap", "dep:tracing-subscriber", "all"]
 
 # Convenience feature to enable all modules
 all = ["asinfo", "as2rel", "bogons", "countries", "delegated", "irr", "mrt_collectors", "peeringdb", "rpki"]
@@ -94,6 +96,11 @@ required-features = ["asinfo"]
 [[example]]
 name = "bench_asinfo"
 required-features = ["asinfo"]
+
+[[bin]]
+name = "bgpkit-export"
+path = "src/bin/export.rs"
+required-features = ["export"]
 
 [lints.clippy]
 uninlined_format_args = "allow"
