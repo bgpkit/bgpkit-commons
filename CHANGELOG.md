@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## v0.13.0 - 2026-08-10
+
 ### Changes
 
 * `asinfo`: `get_asinfo_map()` now fills ASNs missing from RIPE NCC `asn.txt`
