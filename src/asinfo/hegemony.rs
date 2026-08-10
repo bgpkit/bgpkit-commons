@@ -86,4 +86,10 @@ impl Hegemony {
     pub fn get_score(&self, asn: u32) -> Option<&HegemonyData> {
         self.hegemony_map.get(&asn)
     }
+
+    /// Iterate over all hegemony entries in arbitrary order.
+    #[allow(dead_code)]
+    pub fn all_scores(&self) -> impl Iterator<Item = &HegemonyData> {
+        self.hegemony_map.values()
+    }
 }

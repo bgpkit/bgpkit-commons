@@ -75,4 +75,10 @@ impl AsnPopulation {
                 sample_count: entry.sample_count,
             })
     }
+
+    /// Iterate over all population entries in arbitrary order.
+    #[allow(dead_code)]
+    pub fn all_entries(&self) -> impl Iterator<Item = &ApnicAsnPopulationEntry> {
+        self.population_map.values()
+    }
 }
