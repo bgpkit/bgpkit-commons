@@ -180,6 +180,12 @@ impl As2org {
         )
     }
 
+    /// Iterate over all AS entries in arbitrary order.
+    #[allow(dead_code)]
+    pub fn all_as_info(&self) -> impl Iterator<Item = As2orgAsInfo> + '_ {
+        self.as_map.keys().filter_map(|&asn| self.get_as_info(asn))
+    }
+
     /// Return `true` if both ASNs belong to the same organization.
     #[allow(dead_code)]
     pub fn are_siblings(&self, asn1: u32, asn2: u32) -> bool {

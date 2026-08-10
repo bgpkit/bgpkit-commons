@@ -54,8 +54,9 @@ fn test_loading_cached() {
 
     let bgpkit_info = commons.asinfo_get(400644).unwrap().unwrap();
 
-    // Assert that the AS name for AS number 400644 is correct.
-    assert_eq!(bgpkit_info.name, "BGPKIT-LLC");
+    // Assert that the AS name for AS number 400644 contains "BGPKIT-LLC".
+    // (The full name string may vary as upstream asn.txt is updated.)
+    assert!(bgpkit_info.name.contains("BGPKIT-LLC"));
 
     // Assert that the country for AS number 400644 is correct.
     assert_eq!(bgpkit_info.country, "US");
