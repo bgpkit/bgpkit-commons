@@ -62,8 +62,11 @@ mrt_collectors = ["oneio", "chrono"]
 peeringdb = ["oneio", "serde_json", "tracing"]
 rpki = ["oneio", "ipnet", "ipnet-trie", "chrono", "tracing", "tar", "serde_json", "zstd", "bcder"]
 
-# Export feature: enables Parquet export of all commons data sources
-export = ["dep:arrow", "dep:parquet", "dep:clap", "dep:tracing-subscriber", "all"]
+# Export feature: Parquet writers for library users
+export = ["dep:arrow", "dep:parquet", "all"]
+
+# Export CLI: adds the bgpkit-export binary (includes clap + tracing-subscriber)
+export-cli = ["export", "dep:clap", "dep:tracing-subscriber"]
 
 # Convenience feature to enable all modules
 all = ["asinfo", "as2rel", "bogons", "countries", "delegated", "irr", "mrt_collectors", "peeringdb", "rpki"]
@@ -100,7 +103,7 @@ required-features = ["asinfo"]
 [[bin]]
 name = "bgpkit-export"
 path = "src/bin/export.rs"
-required-features = ["export"]
+required-features = ["export-cli"]
 
 [lints.clippy]
 uninlined_format_args = "allow"

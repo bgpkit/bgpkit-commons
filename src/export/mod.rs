@@ -176,7 +176,7 @@ pub fn countries(dir: impl AsRef<Path>, commons: &BgpkitCommons) -> WriteResult 
             Field::new("name", DataType::Utf8, false),
             Field::new("capital", DataType::Utf8, false),
             Field::new("continent", DataType::Utf8, false),
-            Field::new("tld", DataType::Utf8, true),
+            Field::new("ltd", DataType::Utf8, true),
             list_string_field("neighbors", false),
         ]));
 
@@ -539,6 +539,12 @@ pub fn rir_delegated(dir: impl AsRef<Path>) -> WriteResult {
     }
 
     let exts_arr = build_nullable_string_list(&exts_list);
+
+    if registries.is_empty() {
+        return Err(ExportError::ModuleNotLoaded(
+            "rir_delegated: no records fetched (all upstream sources failed)".into(),
+        ));
+    }
 
     let batch = RecordBatch::try_new(
         schema,

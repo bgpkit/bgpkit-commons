@@ -193,7 +193,7 @@ impl As2relBgpkit {
             .iter()
             .filter(move |((a, b), _)| *a < *b)
             .flat_map(|(_, set)| {
-                set.iter().map(move |e| As2relExportEntry {
+                set.iter().map(|e| As2relExportEntry {
                     asn1: e.asn1,
                     asn2: e.asn2,
                     rel: e.rel,
@@ -201,14 +201,13 @@ impl As2relBgpkit {
                     peers_count: e.peers_count,
                     address_family: 4,
                 })
-            })
-            .collect::<Vec<_>>();
+            });
         let v6 = self
             .v6_rels_map
             .iter()
             .filter(move |((a, b), _)| *a < *b)
             .flat_map(|(_, set)| {
-                set.iter().map(move |e| As2relExportEntry {
+                set.iter().map(|e| As2relExportEntry {
                     asn1: e.asn1,
                     asn2: e.asn2,
                     rel: e.rel,
@@ -216,9 +215,8 @@ impl As2relBgpkit {
                     peers_count: e.peers_count,
                     address_family: 6,
                 })
-            })
-            .collect::<Vec<_>>();
-        v4.into_iter().chain(v6)
+            });
+        v4.chain(v6)
     }
 }
 
