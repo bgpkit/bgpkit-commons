@@ -1,21 +1,18 @@
 # bgpkit-commons
 
-## Overview
+[![crates.io](https://img.shields.io/crates/v/bgpkit-commons.svg)](https://crates.io/crates/bgpkit-commons)
+[![docs.rs](https://docs.rs/bgpkit-commons/badge.svg)](https://docs.rs/bgpkit-commons)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-`bgpkit-commons` is a library for common BGP-related data and functions with a lazy-loading
-architecture. Each module can be independently enabled via feature flags, allowing for minimal builds.
+A Rust library for common BGP-related data and functions. Each data source is a
+feature-gated module with lazy loading: call `load_xxx()` to fetch, then query.
 
-### Quick Start
-
-Add `bgpkit-commons` to your `Cargo.toml`:
+## Quick start
 
 ```toml
 [dependencies]
-bgpkit-commons = "0.10"
+bgpkit-commons = "0.12"
 ```
-
-All modules follow the same pattern: create a [`BgpkitCommons`] instance, call a `load_xxx()`
-method to fetch data, then use `xxx_yyy()` methods to access it.
 
 ```rust
 use bgpkit_commons::BgpkitCommons;
@@ -23,93 +20,41 @@ use bgpkit_commons::BgpkitCommons;
 let mut commons = BgpkitCommons::new();
 commons.load_bogons().unwrap();
 
-if let Ok(is_bogon) = commons.bogons_match("23456") {
-    println!("ASN 23456 is a bogon: {}", is_bogon);
-}
+assert!(commons.bogons_match("23456").unwrap()); // AS23456 is reserved
 ```
 
-### Modules
+## Data sources
 
-#### [`asinfo`] — Autonomous System Information
+| Module | Feature | Source | Data |
+|--------|---------|--------|------|
+| `asinfo` | `asinfo` | RIPE NCC, CAIDA, APNIC, IIJ IHR, PeeringDB, RIR delegated stats, IRR | AS names, countries, org mappings, population, hegemony, IRR registrations |
+| `as2rel` | `as2rel` | BGPKIT inference | AS-level provider/customer/peer relationships |
+| `bogons` | `bogons` | IANA special registries | Reserved/bogon ASN and IP prefix detection |
+| `countries` | `countries` | GeoNames | ISO country codes, capitals, continents, neighbors |
+| `mrt_collectors` | `mrt_collectors` | RouteViews, RIPE RIS | BGP collector metadata (name, project, country, dates) |
+| `peeringdb` | `peeringdb` | PeeringDB API | All 12 endpoints: networks, IXPs, facilities, orgs, carriers |
+| `rpki` | `rpki` | Cloudflare, RIPE NCC, RPKIviews, RPKISPOOL | ROA and ASPA validation (real-time and historical) |
+| `delegated` | `delegated` | NRO/RIR delegated stats | RIR allocation records (ASN, IPv4, IPv6) |
+| `irr` | `irr` | RIPE, APNIC, ARIN, LACNIC, AFRINIC, NTTCOM, RADB, ... | RPSL aut-num, route, route6, as-set records |
+| `export` | `export` | All of the above | Parquet export of every loaded data source |
 
-Feature: `asinfo` | Sources: RIPE NCC, CAIDA as2org, APNIC population, IIJ IHR hegemony, PeeringDB
+## Usage
 
-- Load: `load_asinfo(as2org, population, hegemony, peeringdb)`, `load_asinfo_cached()`, `load_asinfo_with(builder)`
-- Access: `asinfo_get(asn)`, `asinfo_all()`, `asinfo_are_siblings(asn1, asn2)`
-- AS name resolution, country mapping, organization data, population statistics, hegemony scores
-
-#### [`as2rel`] — AS Relationship Data
-
-Feature: `as2rel` | Source: BGPKIT AS relationship inference
-
-- Load: `load_as2rel()`
-- Access: `as2rel_lookup(asn1, asn2)`
-- Provider-customer, peer-to-peer, and sibling relationships between ASes
-
-#### [`bogons`] — Bogon Detection
-
-Feature: `bogons` | Source: IANA special registries (IPv4, IPv6, ASN)
-
-- Load: `load_bogons()`
-- Access: `bogons_match(input)`, `bogons_match_prefix(prefix)`, `bogons_match_asn(asn)`, `get_bogon_prefixes()`, `get_bogon_asns()`
-- Detect invalid/reserved IP prefixes and ASNs that shouldn't appear in routing
-
-#### [`countries`] — Country Information
-
-Feature: `countries` | Source: GeoNames geographical database
-
-- Load: `load_countries()`
-- Access: `country_by_code(code)`, `country_by_code3(code)`, `country_by_name(name)`, `country_all()`
-- ISO country code to name mapping and geographical information
-
-#### [`mrt_collectors`] — MRT Collector Metadata
-
-Feature: `mrt_collectors` | Sources: RouteViews and RIPE RIS official APIs
-
-- Load: `load_mrt_collectors()`, `load_mrt_collector_peers()`
-- Access: `mrt_collectors_all()`, `mrt_collectors_by_name(name)`, `mrt_collectors_by_country(country)`, `mrt_collector_peers_all()`, `mrt_collector_peers_full_feed()`
-- BGP collector information, peer details, full-feed vs partial-feed classification
-
-#### [`peeringdb`] — PeeringDB Data
-
-Feature: `peeringdb` | Source: [PeeringDB API](https://www.peeringdb.com/api/)
-
-- Load: `Peeringdb::new()` (all tables), `Peeringdb::new_networks_only()` (lightweight)
-- Access: `get_network(asn)`, `get_ixp(ix_id)`, `get_ixp_memberships(asn)`, `lookup_ixp_prefix(prefix)`, `get_facility(fac_id)`
-- Typed structs mirroring all 12 PeeringDB API endpoints: networks, internet exchanges,
-  IXP prefixes, IXP membership, facilities, organizations, carriers, and more
-- `PeeringdbData` is a type alias for the full `Network` struct (backward compatible)
-
-#### [`rpki`] — RPKI Validation
-
-Feature: `rpki` | Sources: Cloudflare (real-time), RIPE NCC historical, RPKIviews historical, RPKISPOOL historical
-
-- Load: `load_rpki(optional_date)`, `load_rpki_historical(date, source)`, `load_rpki_from_files(urls, source, date)`
-- Poll: `RpkiTrie::from_cloudflare_conditional(etag, last_modified)` returns `Ok(None)` on `304 Not Modified`
-- Access: `rpki_validate(asn, prefix)`, `rpki_validate_check_expiry(asn, prefix, timestamp)`, `rpki_lookup_by_prefix(prefix)`, `rpki_lookup_aspa(customer_asn)`
-- Route Origin Authorization (ROA) and ASPA validation, supports real-time and historical sources
-- Poll current Cloudflare data with `RpkiTrie::from_cloudflare_conditional`, retaining the returned
-  [`rpki::RpkiLoad`] validators and keeping the existing trie when the result is `Ok(None)`.
-- `BgpkitCommons::reload()` performs a full reload; it does not use validators or provide an atomic
-  poll-and-swap operation.
-
-### Examples
-
-#### Loading multiple modules
+### AS information with enrichment
 
 ```rust
+use bgpkit_commons::asinfo::AsInfoProfile;
 use bgpkit_commons::BgpkitCommons;
 
 let mut commons = BgpkitCommons::new();
-commons.load_asinfo(false, false, false, false).unwrap();
-commons.load_countries().unwrap();
+commons.load_asinfo_with_profile(AsInfoProfile::Default).unwrap();
 
 if let Ok(Some(asinfo)) = commons.asinfo_get(13335) {
-    println!("AS13335: {} ({})", asinfo.name, asinfo.country);
+    println!("AS{}: {} ({})", asinfo.asn, asinfo.name, asinfo.country);
 }
 ```
 
-#### Using AsInfoBuilder
+### Fine-grained source selection
 
 ```rust
 use bgpkit_commons::BgpkitCommons;
@@ -120,59 +65,161 @@ let builder = commons.asinfo_builder()
     .with_peeringdb();
 commons.load_asinfo_with(builder).unwrap();
 
-if let Ok(are_siblings) = commons.asinfo_are_siblings(13335, 132892) {
-    println!("AS13335 and AS132892 are siblings: {}", are_siblings);
+if let Ok(siblings) = commons.asinfo_are_siblings(13335, 132892) {
+    println!("Sibling ASes: {siblings}");
 }
 ```
 
-#### Loading historical RPKI data
+### RPKI validation
 
 ```rust
 use bgpkit_commons::BgpkitCommons;
-use bgpkit_commons::rpki::{HistoricalRpkiSource, RpkiViewsCollector};
-use chrono::NaiveDate;
 
 let mut commons = BgpkitCommons::new();
-let date = NaiveDate::from_ymd_opt(2024, 1, 4).unwrap();
+commons.load_rpki(None).unwrap(); // real-time Cloudflare data
 
-// Load from RIPE NCC historical archives
-commons.load_rpki_historical(date, HistoricalRpkiSource::Ripe).unwrap();
-
-// Or load from RPKIviews collectors
-let source = HistoricalRpkiSource::RpkiViews(RpkiViewsCollector::KerfuffleNet);
-commons.load_rpki_historical(date, source).unwrap();
-
-// List available files for a date
-let files = commons.list_rpki_files(date, HistoricalRpkiSource::Ripe).unwrap();
+let result = commons.rpki_validate(13335, "1.1.1.0/24").unwrap();
+println!("RPKI: {result}"); // valid, invalid, or unknown
 ```
 
-#### Direct module access
+### IRR source selection
 
-Modules can also be used directly without `BgpkitCommons`:
+```rust
+use bgpkit_commons::asinfo::{AsInfoBuilder, IrrSourceConfig};
+
+let asinfo = AsInfoBuilder::new()
+    .with_irr_sources(IrrSourceConfig::only(&["RIPE", "RADB"]).unwrap())
+    .build()
+    .unwrap();
+```
+
+### Bogon detection
+
+```rust
+use bgpkit_commons::BgpkitCommons;
+
+let mut commons = BgpkitCommons::new();
+commons.load_bogons().unwrap();
+
+assert!(commons.bogons_match("10.0.0.0/8").unwrap());   // RFC 1918
+assert!(commons.bogons_match_asn(65535).unwrap());       // reserved ASN
+```
+
+### PeeringDB
+
+```rust
+use bgpkit_commons::peeringdb::Peeringdb;
+
+let pdb = Peeringdb::new().unwrap(); // all 12 endpoints
+let cf = pdb.get_network(13335).unwrap();
+println!("{}: {} IXP memberships", cf.name.unwrap(), cf.ix_count.unwrap());
+```
+
+### Direct module access
+
+Modules work standalone without the `BgpkitCommons` facade:
 
 ```rust
 use bgpkit_commons::bogons::Bogons;
+use bgpkit_commons::countries::Countries;
+
 let bogons = Bogons::new().unwrap();
+let countries = Countries::new().unwrap();
 ```
 
-### Feature Flags
+## Parquet export
 
-| Feature | Description |
-|---------|-------------|
-| `asinfo` | AS information: names, countries, organizations, population, hegemony |
-| `as2rel` | AS relationship data |
-| `bogons` | Bogon prefix and ASN detection |
-| `countries` | Country information lookup |
-| `mrt_collectors` | MRT collector metadata |
-| `peeringdb` | PeeringDB API data (networks, IXPs, facilities, organizations) |
-| `rpki` | RPKI validation (ROA and ASPA) |
-| `all` *(default)* | Enables all modules |
-
-For a minimal build:
+The `export` feature enables source-faithful Parquet export of all loaded data.
+Each upstream source is written as its own file with full source fields preserved.
 
 ```toml
 [dependencies]
-bgpkit-commons = { version = "0.10", default-features = false, features = ["bogons", "countries"] }
+bgpkit-commons = { version = "0.12", features = ["export"] }
 ```
 
-License: MIT
+```rust
+use bgpkit_commons::BgpkitCommons;
+use bgpkit_commons::export;
+
+let mut commons = BgpkitCommons::new();
+commons.load_countries().unwrap();
+
+export::countries("./output", &commons).unwrap();
+// writes ./output/countries.parquet
+```
+
+### CLI tool
+
+The `export-cli` feature adds the `bgpkit-export` binary:
+
+```sh
+cargo install bgpkit-commons --features export-cli
+
+bgpkit-export --output-dir ./commons-export
+bgpkit-export --output-dir ./output --with-peeringdb --with-irr --with-rpki
+bgpkit-export --output-dir ./output --with-asninfo-jsonl
+```
+
+Output layout (one file per source):
+
+```
+commons-export/
+  manifest.json
+  asn_names.parquet
+  countries.parquet
+  iana_bogons.parquet
+  mrt_collectors.parquet
+  as_relationships.parquet
+  rir_delegated.parquet
+  peeringdb/          # 12 endpoint tables (--with-peeringdb)
+  irr/records.parquet  # RPSL records (--with-irr)
+  rpki/               # ROAs + ASPAs (--with-rpki)
+  asninfo.jsonl        # legacy merged output (--with-asninfo-jsonl)
+```
+
+## Feature flags
+
+| Feature | Description |
+|---------|-------------|
+| `asinfo` | AS information with multi-source enrichment |
+| `as2rel` | AS relationship inference data |
+| `bogons` | Bogon prefix and ASN detection |
+| `countries` | Country information lookup |
+| `delegated` | RIR delegated-statistics parser |
+| `irr` | IRR RPSL record parsing (aut-num, route, as-set) |
+| `mrt_collectors` | MRT collector metadata |
+| `peeringdb` | PeeringDB API data (all 12 endpoints) |
+| `rpki` | RPKI validation (ROA and ASPA) |
+| `all` *(default)* | Enables all data modules above |
+| `export` | Parquet export of all loaded sources (adds `arrow` + `parquet`) |
+| `export-cli` | Adds the `bgpkit-export` binary (adds `clap` + `tracing-subscriber`) |
+
+Minimal build:
+
+```toml
+[dependencies]
+bgpkit-commons = { version = "0.12", default-features = false, features = ["bogons", "countries"] }
+```
+
+## AsInfo loading profiles
+
+| Profile | Sources | Use case |
+|---------|---------|----------|
+| `Minimum` | RIPE `asn.txt` only | Fast name/country lookup |
+| `Default` | + as2org, population, hegemony, PeeringDB | Production enrichment |
+| `Full` | + delegated stats, IRR (all sources, with route prefixes) | Complete dataset |
+
+```rust
+use bgpkit_commons::asinfo::AsInfoProfile;
+// or build custom:
+use bgpkit_commons::asinfo::AsInfoBuilder;
+
+let builder = AsInfoBuilder::new()
+    .with_as2org()
+    .with_delegated()
+    .with_irr();
+```
+
+## License
+
+MIT
