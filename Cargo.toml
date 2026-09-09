@@ -39,8 +39,15 @@ bcder = { version = "0.7", optional = true }
 # Export-only deps (behind `export` feature)
 arrow = { version = "59", optional = true }
 parquet = { version = "59", optional = true }
-clap = { version = "4", features = ["derive"], optional = true }
+clap = { version = "4", features = ["derive", "env"], optional = true }
 tracing-subscriber = { version = "0.3", optional = true }
+
+# pg_inserter-only deps (behind `pg-inserter-cli` feature)
+tokio = { version = "1", features = ["net", "rt-multi-thread", "macros", "time"], optional = true }
+tokio-postgres = { version = "0.7", features = ["with-chrono-0_4"], optional = true }
+futures-util = { version = "0.3", optional = true }
+bytes = { version = "1", optional = true }
+dotenvy = { version = "0.15", optional = true }
 
 [dev-dependencies]
 tracing-subscriber = "0.3"
@@ -67,6 +74,9 @@ export = ["dep:arrow", "dep:parquet", "all"]
 
 # Export CLI: adds the bgpkit-export binary (includes clap + tracing-subscriber)
 export-cli = ["export", "dep:clap", "dep:tracing-subscriber"]
+
+# pg_inserter CLI: adds the pg_inserter binary (PostgreSQL loader for asinfo/delegated data)
+pg-inserter-cli = ["dep:tokio", "dep:tokio-postgres", "dep:futures-util", "dep:bytes", "dep:dotenvy", "dep:clap", "dep:tracing-subscriber", "asinfo", "delegated"]
 
 # Convenience feature to enable all modules
 all = ["asinfo", "as2rel", "bogons", "countries", "delegated", "irr", "mrt_collectors", "peeringdb", "rpki"]
@@ -104,6 +114,11 @@ required-features = ["asinfo"]
 name = "bgpkit-export"
 path = "src/bin/export.rs"
 required-features = ["export-cli"]
+
+[[bin]]
+name = "pg_inserter"
+path = "src/bin/pg_inserter/main.rs"
+required-features = ["pg-inserter-cli"]
 
 [lints.clippy]
 uninlined_format_args = "allow"
