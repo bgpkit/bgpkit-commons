@@ -84,7 +84,13 @@ impl<R: Read> Iterator for IrrRecordIter<R> {
 
             let line = String::from_utf8_lossy(&self.line);
             let line = line.trim_end_matches(['\n', '\r']);
-            if line.trim().is_empty() || line.starts_with('#') || line.starts_with('%') {
+            // ARIN (and some other registries) terminate their whole-DB dumps
+            // with a bare `EOF` marker line.
+            if line.trim().is_empty()
+                || line.starts_with('#')
+                || line.starts_with('%')
+                || line.trim() == "EOF"
+            {
                 if self.object_lines.is_empty() {
                     continue;
                 }
@@ -108,6 +114,20 @@ fn parse_record_lines(lines: Vec<String>) -> Result<IrrRecord> {
             };
             attribute.value.push('\n');
             attribute.value.push_str(line.trim());
+            continue;
+        }
+        if line.starts_with('+') {
+            // RIPE dumps contain decorative banner/separator lines starting
+            // with '+'. When an attribute is open, treat the line as a
+            // continuation (some dumps wrap key material this way), stripping
+            // the decorative '+'; otherwise skip it as decoration between
+            // objects.
+            if let Some(attribute) = attributes.last_mut() {
+                attribute.value.push('\n');
+                attribute
+                    .value
+                    .push_str(line.trim().trim_start_matches('+').trim());
+            }
             continue;
         }
 

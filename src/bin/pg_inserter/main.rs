@@ -7,6 +7,7 @@
 //! `meta.ingest_run` for provenance.
 
 mod asndata;
+mod irr;
 mod peeringdb;
 mod refresh;
 
@@ -45,6 +46,8 @@ enum Commands {
     Asndata,
     /// peeringdb schema: full PeeringDB mirror (12 tables)
     Peeringdb,
+    /// irr schema: full IRR RPSL object store (snapshot-only)
+    Irr,
 }
 
 #[tokio::main]
@@ -78,6 +81,10 @@ async fn main() {
         if let Err(code) = refresh::run_tables(tables, &database_url).await {
             exit_code = code;
         }
+    } else if cli.command == Commands::Irr {
+        if let Err(code) = irr::run(&database_url).await {
+            exit_code = code;
+        }
     } else {
         let tasks: &[Task] = match cli.command {
             Commands::Asnames => &[Task::Asnames],
@@ -86,7 +93,7 @@ async fn main() {
             Commands::Hegemony => &[Task::Hegemony],
             Commands::Delegated => &[Task::Delegated],
             Commands::Asndata => asndata::ALL_TASKS,
-            Commands::Peeringdb => unreachable!(),
+            Commands::Peeringdb | Commands::Irr => unreachable!(),
         };
         for task in tasks {
             let spec = task.spec();

@@ -5,8 +5,8 @@
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use futures_util::SinkExt;
-use std::pin::pin;
-use tokio_postgres::{Client, NoTls};
+use std::pin::Pin;
+use tokio_postgres::{Client, CopyInSink, NoTls};
 use tracing::{error, info, warn};
 
 pub(crate) const SOURCE_REVISION: &str = env!("CARGO_PKG_VERSION");
@@ -154,6 +154,107 @@ async fn write_table(
     started_at: DateTime<Utc>,
     data_as_of: DateTime<Utc>,
 ) -> Result<u64, (i32, String)> {
+    let mut sink = prepare_copy(client, spec).await?;
+    let mut buf: Vec<u8> = Vec::with_capacity(COPY_CHUNK_BYTES);
+    for line in lines {
+        buf.extend_from_slice(line.as_bytes());
+        buf.push(b'\n');
+        if buf.len() >= COPY_CHUNK_BYTES {
+            sink.as_mut()
+                .feed(Bytes::from(std::mem::take(&mut buf)))
+                .await
+                .map_err(|e| (15, format!("failed to stream COPY data: {e}")))?;
+        }
+    }
+    if !buf.is_empty() {
+        sink.as_mut()
+            .feed(Bytes::from(buf))
+            .await
+            .map_err(|e| (15, format!("failed to stream COPY data: {e}")))?;
+    }
+    finish_table(client, spec, sink, started_at, data_as_of).await
+}
+
+/// Streaming variant of `run_task` for datasets too large to materialize in
+/// memory: the producer runs on the blocking pool and pushes CSV lines
+/// through a bounded channel; the COPY sink consumes them incrementally.
+pub(crate) async fn run_streaming_task(
+    spec: TableSpec,
+    produce: impl FnOnce(tokio::sync::mpsc::Sender<Result<String, String>>) -> Result<(), String>
+    + Send
+    + 'static,
+    database_url: &str,
+) -> Result<(), i32> {
+    let started_at = Utc::now();
+    let data_as_of = started_at;
+    let mut client = match connect(database_url).await {
+        Ok(client) => client,
+        Err((code, message)) => {
+            error!("{}: {message}", spec.task);
+            record_error_run(&spec, database_url, started_at, &message).await;
+            return Err(code);
+        }
+    };
+    match write_table_streaming(&mut client, &spec, produce, started_at, data_as_of).await {
+        Ok(row_count) => {
+            info!("{}: complete ({row_count} rows)", spec.task);
+            Ok(())
+        }
+        Err((code, message)) => {
+            error!("{}: {message}", spec.task);
+            record_error_run(&spec, database_url, started_at, &message).await;
+            Err(code)
+        }
+    }
+}
+
+async fn write_table_streaming(
+    client: &mut Client,
+    spec: &TableSpec,
+    produce: impl FnOnce(tokio::sync::mpsc::Sender<Result<String, String>>) -> Result<(), String>
+    + Send
+    + 'static,
+    started_at: DateTime<Utc>,
+    data_as_of: DateTime<Utc>,
+) -> Result<u64, (i32, String)> {
+    let mut sink = prepare_copy(client, spec).await?;
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<Result<String, String>>(64);
+    let producer = tokio::task::spawn_blocking(move || produce(tx));
+
+    let mut buf: Vec<u8> = Vec::with_capacity(COPY_CHUNK_BYTES);
+    while let Some(item) = rx.recv().await {
+        let line = item.map_err(|e| (16, format!("row producer failed: {e}")))?;
+        buf.extend_from_slice(line.as_bytes());
+        buf.push(b'\n');
+        if buf.len() >= COPY_CHUNK_BYTES {
+            sink.as_mut()
+                .feed(Bytes::from(std::mem::take(&mut buf)))
+                .await
+                .map_err(|e| (15, format!("failed to stream COPY data: {e}")))?;
+        }
+    }
+    // The channel closed: the producer finished. Surface its result before
+    // committing anything.
+    match producer.await {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => return Err((11, format!("row producer failed: {e}"))),
+        Err(e) => return Err((11, format!("row producer task failed: {e}"))),
+    }
+    if !buf.is_empty() {
+        sink.as_mut()
+            .feed(Bytes::from(buf))
+            .await
+            .map_err(|e| (15, format!("failed to stream COPY data: {e}")))?;
+    }
+    finish_table(client, spec, sink, started_at, data_as_of).await
+}
+
+/// Acquire the per-table advisory lock, ensure schemas, and start the staging
+/// COPY. Returns the open sink for the caller to feed.
+async fn prepare_copy(
+    client: &mut Client,
+    spec: &TableSpec,
+) -> Result<Pin<Box<CopyInSink<Bytes>>>, (i32, String)> {
     // Serialize concurrent runs of the same task before any DDL/COPY work.
     client
         .execute("SELECT pg_advisory_lock($1)", &[&lock_key(spec.table)])
@@ -184,25 +285,20 @@ async fn write_table(
         .copy_in(&copy_sql)
         .await
         .map_err(|e| (15, format!("failed to start COPY: {e}")))?;
-    let mut sink = pin!(sink);
-    let mut buf: Vec<u8> = Vec::with_capacity(COPY_CHUNK_BYTES);
-    for line in lines {
-        buf.extend_from_slice(line.as_bytes());
-        buf.push(b'\n');
-        if buf.len() >= COPY_CHUNK_BYTES {
-            sink.as_mut()
-                .feed(Bytes::from(std::mem::take(&mut buf)))
-                .await
-                .map_err(|e| (15, format!("failed to stream COPY data: {e}")))?;
-        }
-    }
-    if !buf.is_empty() {
-        sink.as_mut()
-            .feed(Bytes::from(buf))
-            .await
-            .map_err(|e| (15, format!("failed to stream COPY data: {e}")))?;
-    }
+    Ok(Box::pin(sink))
+}
+
+/// Finish a staging COPY and publish the table: empty-dataset guard, staging
+/// indexes, single-transaction atomic swap, and the ingest_run provenance row.
+async fn finish_table(
+    client: &mut Client,
+    spec: &TableSpec,
+    mut sink: Pin<Box<CopyInSink<Bytes>>>,
+    started_at: DateTime<Utc>,
+    data_as_of: DateTime<Utc>,
+) -> Result<u64, (i32, String)> {
     let copied_rows = sink
+        .as_mut()
         .finish()
         .await
         .map_err(|e| (15, format!("failed to finish COPY: {e}")))?;
