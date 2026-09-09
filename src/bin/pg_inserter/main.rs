@@ -7,6 +7,7 @@
 //! `meta.ingest_run` for provenance.
 
 mod asndata;
+mod peeringdb;
 mod refresh;
 
 use asndata::Task;
@@ -42,6 +43,8 @@ enum Commands {
     Delegated,
     /// Run every asndata task sequentially
     Asndata,
+    /// peeringdb schema: full PeeringDB mirror (12 tables)
+    Peeringdb,
 }
 
 #[tokio::main]
@@ -57,22 +60,41 @@ async fn main() {
         exit(10);
     };
 
-    let tasks: &[Task] = match cli.command {
-        Commands::Asnames => &[Task::Asnames],
-        Commands::As2org => &[Task::As2org],
-        Commands::Population => &[Task::Population],
-        Commands::Hegemony => &[Task::Hegemony],
-        Commands::Delegated => &[Task::Delegated],
-        Commands::Asndata => asndata::ALL_TASKS,
-    };
-
     let mut exit_code = 0;
-    for task in tasks {
-        let spec = task.spec();
-        let load = task.load_fn();
-        if let Err(code) = refresh::run_task(spec, load, &database_url).await {
-            // one task failing must not stop the remaining tasks
+    if cli.command == Commands::Peeringdb {
+        let data_as_of = chrono::Utc::now().to_rfc3339();
+        let tables =
+            match tokio::task::spawn_blocking(move || peeringdb::load_all(&data_as_of)).await {
+                Ok(Ok(tables)) => tables,
+                Ok(Err(e)) => {
+                    eprintln!("peeringdb: data load failed: {e}");
+                    exit(11);
+                }
+                Err(e) => {
+                    eprintln!("peeringdb: data loader task failed: {e}");
+                    exit(11);
+                }
+            };
+        if let Err(code) = refresh::run_tables(tables, &database_url).await {
             exit_code = code;
+        }
+    } else {
+        let tasks: &[Task] = match cli.command {
+            Commands::Asnames => &[Task::Asnames],
+            Commands::As2org => &[Task::As2org],
+            Commands::Population => &[Task::Population],
+            Commands::Hegemony => &[Task::Hegemony],
+            Commands::Delegated => &[Task::Delegated],
+            Commands::Asndata => asndata::ALL_TASKS,
+            Commands::Peeringdb => unreachable!(),
+        };
+        for task in tasks {
+            let spec = task.spec();
+            let load = task.load_fn();
+            if let Err(code) = refresh::run_task(spec, load, &database_url).await {
+                // one task failing must not stop the remaining tasks
+                exit_code = code;
+            }
         }
     }
     if exit_code != 0 {

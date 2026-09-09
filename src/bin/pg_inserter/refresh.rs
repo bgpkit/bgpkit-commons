@@ -53,7 +53,36 @@ pub(crate) type LoadFn = fn(&str) -> Result<Vec<String>, String>;
 pub(crate) async fn run_task(spec: TableSpec, load: LoadFn, database_url: &str) -> Result<(), i32> {
     let started_at = Utc::now();
     let data_as_of = started_at;
-    match execute_task(&spec, load, database_url, started_at, data_as_of).await {
+    let data_as_of_str = data_as_of.to_rfc3339();
+    // The commons data load is synchronous and internally creates/drops
+    // blocking HTTP clients that own their own tokio runtimes; dropping such
+    // a runtime inside an async context panics (tokio >= 1.48), so it must
+    // run on the blocking pool instead.
+    let lines = match tokio::task::spawn_blocking(move || load(&data_as_of_str)).await {
+        Ok(Ok(lines)) => lines,
+        Ok(Err(e)) => {
+            let message = format!("data load failed: {e}");
+            error!("{}: {message}", spec.task);
+            record_error_run(&spec, database_url, started_at, &message).await;
+            return Err(11);
+        }
+        Err(e) => {
+            let message = format!("data loader task failed: {e}");
+            error!("{}: {message}", spec.task);
+            record_error_run(&spec, database_url, started_at, &message).await;
+            return Err(11);
+        }
+    };
+
+    let mut client = match connect(database_url).await {
+        Ok(client) => client,
+        Err((code, message)) => {
+            error!("{}: {message}", spec.task);
+            record_error_run(&spec, database_url, started_at, &message).await;
+            return Err(code);
+        }
+    };
+    match write_table(&mut client, &spec, &lines, started_at, data_as_of).await {
         Ok(row_count) => {
             info!("{}: complete ({row_count} rows)", spec.task);
             Ok(())
@@ -66,25 +95,45 @@ pub(crate) async fn run_task(spec: TableSpec, load: LoadFn, database_url: &str) 
     }
 }
 
-async fn execute_task(
-    spec: &TableSpec,
-    load: LoadFn,
+/// Run several already-loaded table snapshots through one connection. A
+/// failing table records its own error provenance row and does not stop the
+/// remaining tables (per-source independence).
+pub(crate) async fn run_tables(
+    tables: Vec<(TableSpec, Vec<String>)>,
     database_url: &str,
-    started_at: DateTime<Utc>,
-    data_as_of: DateTime<Utc>,
-) -> Result<u64, (i32, String)> {
-    // The commons data load is synchronous and internally creates/drops
-    // blocking HTTP clients that own their own tokio runtimes; dropping such
-    // a runtime inside an async context panics (tokio >= 1.48), so it must
-    // run on the blocking pool instead.
-    let data_as_of_str = data_as_of.to_rfc3339();
-    let lines = tokio::task::spawn_blocking(move || load(&data_as_of_str))
-        .await
-        .map_err(|e| (11, format!("data loader task failed: {e}")))?
-        .map_err(|e| (11, format!("data load failed: {e}")))?;
+) -> Result<(), i32> {
+    let started_at = Utc::now();
+    let data_as_of = started_at;
+    let mut client = match connect(database_url).await {
+        Ok(client) => client,
+        Err((code, message)) => {
+            error!("failed to connect: {message}");
+            return Err(code);
+        }
+    };
+    let mut exit_code = 0;
+    for (spec, lines) in &tables {
+        match write_table(&mut client, spec, lines, started_at, data_as_of).await {
+            Ok(row_count) => {
+                info!("{}: complete ({row_count} rows)", spec.task);
+            }
+            Err((code, message)) => {
+                error!("{}: {message}", spec.task);
+                record_error_run(spec, database_url, started_at, &message).await;
+                exit_code = code;
+            }
+        }
+    }
+    if exit_code != 0 {
+        Err(exit_code)
+    } else {
+        Ok(())
+    }
+}
 
-    info!("{}: connecting to PostgreSQL ...", spec.task);
-    let (mut client, connection) = match tokio_postgres::connect(database_url, NoTls).await {
+async fn connect(database_url: &str) -> Result<Client, (i32, String)> {
+    info!("connecting to PostgreSQL ...");
+    let (client, connection) = match tokio_postgres::connect(database_url, NoTls).await {
         Ok(pair) => pair,
         Err(e) => return Err((14, format!("failed to connect to PostgreSQL: {e}"))),
     };
@@ -93,16 +142,27 @@ async fn execute_task(
             error!("postgres connection error: {e}");
         }
     });
+    Ok(client)
+}
 
+/// Write one table snapshot: advisory lock, staging COPY, empty-dataset
+/// guard, atomic swap, and the ingest_run provenance row.
+async fn write_table(
+    client: &mut Client,
+    spec: &TableSpec,
+    lines: &[String],
+    started_at: DateTime<Utc>,
+    data_as_of: DateTime<Utc>,
+) -> Result<u64, (i32, String)> {
     // Serialize concurrent runs of the same task before any DDL/COPY work.
     client
         .execute("SELECT pg_advisory_lock($1)", &[&lock_key(spec.table)])
         .await
         .map_err(|e| (15, format!("failed to acquire advisory lock: {e}")))?;
 
-    ensure_schema(&client, "meta").await?;
+    ensure_schema(client, "meta").await?;
     let schema = spec.table.split('.').next().unwrap_or_default();
-    ensure_schema(&client, schema).await?;
+    ensure_schema(client, schema).await?;
     client
         .batch_execute(INGEST_RUN_DDL)
         .await
@@ -126,7 +186,7 @@ async fn execute_task(
         .map_err(|e| (15, format!("failed to start COPY: {e}")))?;
     let mut sink = pin!(sink);
     let mut buf: Vec<u8> = Vec::with_capacity(COPY_CHUNK_BYTES);
-    for line in &lines {
+    for line in lines {
         buf.extend_from_slice(line.as_bytes());
         buf.push(b'\n');
         if buf.len() >= COPY_CHUNK_BYTES {
@@ -152,7 +212,7 @@ async fn execute_task(
     );
 
     // Guard against replacing a healthy table with a broken snapshot.
-    let existing_rows = if table_exists(&client, spec.table).await? {
+    let existing_rows = if table_exists(client, spec.table).await? {
         let n: i64 = client
             .query_one(&format!("SELECT count(*) FROM {}", spec.table), &[])
             .await
