@@ -95,15 +95,17 @@ pub(crate) async fn run_task(spec: TableSpec, load: LoadFn, database_url: &str) 
     }
 }
 
-/// Run several already-loaded table snapshots through one connection. A
-/// failing table records its own error provenance row and does not stop the
-/// remaining tables (per-source independence).
+/// Run several already-loaded table snapshots as one atomic family: all
+/// staging tables are COPYed and indexed first, then every swap happens in a
+/// single transaction, so readers can never observe a mix of old and new
+/// family tables. A failing table aborts the whole family (the live tables
+/// stay untouched).
 pub(crate) async fn run_tables(
     tables: Vec<(TableSpec, Vec<String>)>,
+    data_as_of: DateTime<Utc>,
     database_url: &str,
 ) -> Result<(), i32> {
     let started_at = Utc::now();
-    let data_as_of = started_at;
     let mut client = match connect(database_url).await {
         Ok(client) => client,
         Err((code, message)) => {
@@ -111,24 +113,44 @@ pub(crate) async fn run_tables(
             return Err(code);
         }
     };
-    let mut exit_code = 0;
+    // Copy phase: one prepared staging table per member; any failure aborts
+    // the family before anything is swapped.
+    let mut prepared: Vec<(TableSpec, u64)> = Vec::with_capacity(tables.len());
     for (spec, lines) in &tables {
-        match write_table(&mut client, spec, lines, started_at, data_as_of).await {
-            Ok(row_count) => {
-                info!("{}: complete ({row_count} rows)", spec.task);
-            }
+        match copy_phase(&mut client, spec, lines).await {
+            Ok(row_count) => prepared.push((spec.clone(), row_count)),
             Err((code, message)) => {
                 error!("{}: {message}", spec.task);
                 record_error_run(spec, database_url, started_at, &message).await;
-                exit_code = code;
+                return Err(code);
             }
         }
     }
-    if exit_code != 0 {
-        Err(exit_code)
-    } else {
-        Ok(())
+    // Publish phase: every swap and every provenance row in one transaction.
+    let tx = match client.transaction().await {
+        Ok(tx) => tx,
+        Err(e) => {
+            let message = format!("failed to begin swap transaction: {e}");
+            error!("{message}");
+            return Err(15);
+        }
+    };
+    for (spec, row_count) in &prepared {
+        if let Err(e) = publish_in_tx(&tx, spec, *row_count, started_at, data_as_of).await {
+            error!("{}: {e}", spec.task);
+            record_error_run(spec, database_url, started_at, &e).await;
+            return Err(15);
+        }
     }
+    if let Err(e) = tx.commit().await {
+        let message = format!("failed to commit swap: {e}");
+        error!("{message}");
+        return Err(15);
+    }
+    for (spec, row_count) in &prepared {
+        info!("{}: complete ({row_count} rows)", spec.task);
+    }
+    Ok(())
 }
 
 async fn connect(database_url: &str) -> Result<Client, (i32, String)> {
@@ -155,24 +177,10 @@ async fn write_table(
     data_as_of: DateTime<Utc>,
 ) -> Result<u64, (i32, String)> {
     let mut sink = prepare_copy(client, spec).await?;
-    let mut buf: Vec<u8> = Vec::with_capacity(COPY_CHUNK_BYTES);
-    for line in lines {
-        buf.extend_from_slice(line.as_bytes());
-        buf.push(b'\n');
-        if buf.len() >= COPY_CHUNK_BYTES {
-            sink.as_mut()
-                .feed(Bytes::from(std::mem::take(&mut buf)))
-                .await
-                .map_err(|e| (15, format!("failed to stream COPY data: {e}")))?;
-        }
-    }
-    if !buf.is_empty() {
-        sink.as_mut()
-            .feed(Bytes::from(buf))
-            .await
-            .map_err(|e| (15, format!("failed to stream COPY data: {e}")))?;
-    }
-    finish_table(client, spec, sink, started_at, data_as_of).await
+    feed_lines(&mut sink, lines).await?;
+    let copied_rows = finish_copy(client, spec, sink).await?;
+    publish_one(client, spec, copied_rows, started_at, data_as_of).await?;
+    Ok(copied_rows)
 }
 
 /// Streaming variant of `run_task` for datasets too large to materialize in
@@ -180,13 +188,13 @@ async fn write_table(
 /// through a bounded channel; the COPY sink consumes them incrementally.
 pub(crate) async fn run_streaming_task(
     spec: TableSpec,
+    data_as_of: DateTime<Utc>,
     produce: impl FnOnce(tokio::sync::mpsc::Sender<Result<String, String>>) -> Result<(), String>
     + Send
     + 'static,
     database_url: &str,
 ) -> Result<(), i32> {
     let started_at = Utc::now();
-    let data_as_of = started_at;
     let mut client = match connect(database_url).await {
         Ok(client) => client,
         Err((code, message)) => {
@@ -246,7 +254,34 @@ async fn write_table_streaming(
             .await
             .map_err(|e| (15, format!("failed to stream COPY data: {e}")))?;
     }
-    finish_table(client, spec, sink, started_at, data_as_of).await
+    let copied_rows = finish_copy(client, spec, sink).await?;
+    publish_one(client, spec, copied_rows, started_at, data_as_of).await?;
+    Ok(copied_rows)
+}
+
+/// Feed pre-encoded CSV lines into an open staging COPY sink.
+async fn feed_lines(
+    sink: &mut Pin<Box<CopyInSink<Bytes>>>,
+    lines: &[String],
+) -> Result<(), (i32, String)> {
+    let mut buf: Vec<u8> = Vec::with_capacity(COPY_CHUNK_BYTES);
+    for line in lines {
+        buf.extend_from_slice(line.as_bytes());
+        buf.push(b'\n');
+        if buf.len() >= COPY_CHUNK_BYTES {
+            sink.as_mut()
+                .feed(Bytes::from(std::mem::take(&mut buf)))
+                .await
+                .map_err(|e| (15, format!("failed to stream COPY data: {e}")))?;
+        }
+    }
+    if !buf.is_empty() {
+        sink.as_mut()
+            .feed(Bytes::from(buf))
+            .await
+            .map_err(|e| (15, format!("failed to stream COPY data: {e}")))?;
+    }
+    Ok(())
 }
 
 /// Acquire the per-table advisory lock, ensure schemas, and start the staging
@@ -288,14 +323,23 @@ async fn prepare_copy(
     Ok(Box::pin(sink))
 }
 
-/// Finish a staging COPY and publish the table: empty-dataset guard, staging
-/// indexes, single-transaction atomic swap, and the ingest_run provenance row.
-async fn finish_table(
+/// Copy one snapshot into staging and index it: staging COPY, empty-dataset
+/// guard, staging indexes. Returns the copied row count.
+async fn copy_phase(
+    client: &mut Client,
+    spec: &TableSpec,
+    lines: &[String],
+) -> Result<u64, (i32, String)> {
+    let mut sink = prepare_copy(client, spec).await?;
+    feed_lines(&mut sink, lines).await?;
+    finish_copy(client, spec, sink).await
+}
+
+/// Finish a staging COPY: row count, empty-dataset guard, staging indexes.
+async fn finish_copy(
     client: &mut Client,
     spec: &TableSpec,
     mut sink: Pin<Box<CopyInSink<Bytes>>>,
-    started_at: DateTime<Utc>,
-    data_as_of: DateTime<Utc>,
 ) -> Result<u64, (i32, String)> {
     let copied_rows = sink
         .as_mut()
@@ -327,37 +371,59 @@ async fn finish_table(
             .await
             .map_err(|e| (15, format!("failed to build staging index: {e}")))?;
     }
+    Ok(copied_rows)
+}
 
-    // Atomic swap in a single transaction: readers always see either the old
-    // or the new table, never an empty one. The ingest_run row commits with
-    // the swap.
+/// Publish one prepared staging table: single-transaction swap plus the
+/// ingest_run provenance row.
+async fn publish_one(
+    client: &mut Client,
+    spec: &TableSpec,
+    row_count: u64,
+    started_at: DateTime<Utc>,
+    data_as_of: DateTime<Utc>,
+) -> Result<(), (i32, String)> {
     let tx = client
         .transaction()
         .await
         .map_err(|e| (15, format!("failed to begin swap transaction: {e}")))?;
+    publish_in_tx(&tx, spec, row_count, started_at, data_as_of)
+        .await
+        .map_err(|e| (15, e))?;
+    tx.commit()
+        .await
+        .map_err(|e| (15, format!("failed to commit swap: {e}")))?;
+    Ok(())
+}
+
+/// Drop the live table, rename staging into place, carry index names, and
+/// insert the ingest_run row — all inside the caller's transaction, so the
+/// swap is atomic.
+async fn publish_in_tx(
+    tx: &tokio_postgres::Transaction<'_>,
+    spec: &TableSpec,
+    row_count: u64,
+    started_at: DateTime<Utc>,
+    data_as_of: DateTime<Utc>,
+) -> Result<(), String> {
     tx.batch_execute(&format!("DROP TABLE IF EXISTS {}", spec.table))
         .await
-        .map_err(|e| (15, format!("failed to drop {}: {e}", spec.table)))?;
+        .map_err(|e| format!("failed to drop {}: {e}", spec.table))?;
     let live_name = spec.table.rsplit('.').next().unwrap_or_default();
     tx.batch_execute(&format!(
         "ALTER TABLE {}_staging RENAME TO {}",
         spec.table, live_name
     ))
     .await
-    .map_err(|e| {
-        (
-            15,
-            format!("failed to rename staging to {}: {e}", spec.table),
-        )
-    })?;
+    .map_err(|e| format!("failed to rename staging to {}: {e}", spec.table))?;
     for (old_name, new_name) in spec.index_swaps {
         tx.batch_execute(&format!("ALTER INDEX {} RENAME TO {}", old_name, new_name))
             .await
-            .map_err(|e| (15, format!("failed to rename index {old_name}: {e}")))?;
+            .map_err(|e| format!("failed to rename index {old_name}: {e}"))?;
     }
     let finished_at = Utc::now();
     let duration_secs = (finished_at - started_at).num_milliseconds() as f64 / 1000.0;
-    let row_count = copied_rows.min(i64::MAX as u64) as i64;
+    let row_count = row_count.min(i64::MAX as u64) as i64;
     tx.execute(
         INGEST_INSERT_SQL,
         &[
@@ -373,11 +439,8 @@ async fn finish_table(
         ],
     )
     .await
-    .map_err(|e| (15, format!("failed to record ingest_run: {e}")))?;
-    tx.commit()
-        .await
-        .map_err(|e| (15, format!("failed to commit swap: {e}")))?;
-    Ok(copied_rows)
+    .map_err(|e| format!("failed to record ingest_run: {e}"))?;
+    Ok(())
 }
 
 /// Best-effort provenance record for a failed run. Logs warnings only; it
@@ -389,13 +452,30 @@ async fn record_error_run(
     started_at: DateTime<Utc>,
     message: &str,
 ) {
+    record_error_row(spec.task, database_url, started_at, message).await;
+}
+
+/// Family-level variant for failures that happen before any single table was
+/// written (e.g. a whole-family data load failing).
+pub(crate) async fn record_family_error_run(
+    task: &'static str,
+    _table: &'static str,
+    database_url: &str,
+    message: &str,
+) {
+    record_error_row(task, database_url, Utc::now(), message).await;
+}
+
+async fn record_error_row(
+    task: &str,
+    database_url: &str,
+    started_at: DateTime<Utc>,
+    message: &str,
+) {
     let (client, connection) = match tokio_postgres::connect(database_url, NoTls).await {
         Ok(pair) => pair,
         Err(e) => {
-            warn!(
-                "{}: could not connect to record ingest_run error: {e}",
-                spec.task
-            );
+            warn!("{task}: could not connect to record ingest_run error: {e}");
             return;
         }
     };
@@ -416,7 +496,7 @@ async fn record_error_run(
         .execute(
             INGEST_INSERT_SQL,
             &[
-                &spec.task,
+                &task,
                 &"error",
                 &None::<i64>,           // row count unknown for a failed run
                 &None::<DateTime<Utc>>, // no data snapshot completed
@@ -429,7 +509,7 @@ async fn record_error_run(
         )
         .await;
     if let Err(e) = record {
-        warn!("{}: failed to record ingest_run error: {e}", spec.task);
+        warn!("{task}: failed to record ingest_run error: {e}");
     }
 }
 
@@ -459,15 +539,18 @@ async fn table_exists(client: &Client, name: &str) -> Result<bool, (i32, String)
     Ok(exists)
 }
 
-/// Refuse to replace a healthy table with a broken snapshot: a new dataset
-/// with zero rows, or with fewer than half the currently loaded rows, is
-/// treated as a source failure rather than a legitimate refresh.
+/// Refuse to replace a healthy table with a broken snapshot: an empty
+/// dataset is always refused; a dataset with fewer than half the currently
+/// loaded rows is treated as a source failure rather than a legitimate
+/// refresh.
 fn check_swap_safety(existing_rows: Option<i64>, new_rows: u64) -> Result<(), String> {
+    if new_rows == 0 {
+        return Err("refusing to swap: loaded dataset is empty".to_string());
+    }
     match existing_rows {
-        Some(existing) if existing > 0 && new_rows < existing as u64 / 2 => Err(format!(
+        Some(existing) if new_rows < existing as u64 / 2 => Err(format!(
             "refusing to swap: new dataset has {new_rows} rows vs {existing} currently loaded (less than half)"
         )),
-        None if new_rows == 0 => Err("refusing to swap: loaded dataset is empty".to_string()),
         _ => Ok(()),
     }
 }
@@ -547,6 +630,9 @@ mod tests {
     fn swap_safety_rejects_empty_first_load() {
         assert!(check_swap_safety(None, 0).is_err());
         assert!(check_swap_safety(None, 1).is_ok());
+        // empty load is refused even when the live table exists but is empty
+        assert!(check_swap_safety(Some(0), 0).is_err());
+        assert!(check_swap_safety(Some(0), 1).is_ok());
     }
 
     #[test]

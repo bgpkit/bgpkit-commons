@@ -39,24 +39,20 @@ const ALL_TYPES: &[IrrObjectType] = &[
     IrrObjectType::AsSet,
     IrrObjectType::RouteSet,
     IrrObjectType::Mntner,
+    IrrObjectType::Organisation,
 ];
 
 /// Run the IRR snapshot task. The producer streams parsed objects from every
 /// default source into the staging table.
 pub(crate) async fn run(database_url: &str) -> Result<(), i32> {
-    let data_as_of = chrono::Utc::now().to_rfc3339();
-    refresh_streaming(OBJECT_SPEC, data_as_of, database_url).await
-}
-
-async fn refresh_streaming(
-    spec: TableSpec,
-    data_as_of: String,
-    database_url: &str,
-) -> Result<(), i32> {
-    let produce = move |tx: tokio::sync::mpsc::Sender<Result<String, String>>| {
-        produce_objects(tx, &data_as_of)
+    let data_as_of = chrono::Utc::now();
+    let produce = {
+        let data_as_of = data_as_of.to_rfc3339();
+        move |tx: tokio::sync::mpsc::Sender<Result<String, String>>| {
+            produce_objects(tx, &data_as_of)
+        }
     };
-    super::refresh::run_streaming_task(spec, produce, database_url).await
+    super::refresh::run_streaming_task(OBJECT_SPEC, data_as_of, produce, database_url).await
 }
 
 /// Stream every object from every default IRR source. Runs on the blocking

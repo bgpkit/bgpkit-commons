@@ -65,20 +65,40 @@ async fn main() {
 
     let mut exit_code = 0;
     if cli.command == Commands::Peeringdb {
-        let data_as_of = chrono::Utc::now().to_rfc3339();
-        let tables =
-            match tokio::task::spawn_blocking(move || peeringdb::load_all(&data_as_of)).await {
-                Ok(Ok(tables)) => tables,
-                Ok(Err(e)) => {
-                    eprintln!("peeringdb: data load failed: {e}");
-                    exit(11);
-                }
-                Err(e) => {
-                    eprintln!("peeringdb: data loader task failed: {e}");
-                    exit(11);
-                }
-            };
-        if let Err(code) = refresh::run_tables(tables, &database_url).await {
+        let data_as_of = chrono::Utc::now();
+        let tables = match tokio::task::spawn_blocking({
+            let data_as_of = data_as_of.to_rfc3339();
+            move || peeringdb::load_all(&data_as_of)
+        })
+        .await
+        {
+            Ok(Ok(tables)) => tables,
+            Ok(Err(e)) => {
+                eprintln!("peeringdb: data load failed: {e}");
+                // Best-effort family-level provenance row for a load that
+                // failed before any table write.
+                refresh::record_family_error_run(
+                    "peeringdb",
+                    "peeringdb.net",
+                    &database_url,
+                    &format!("data load failed: {e}"),
+                )
+                .await;
+                exit(11);
+            }
+            Err(e) => {
+                eprintln!("peeringdb: data loader task failed: {e}");
+                refresh::record_family_error_run(
+                    "peeringdb",
+                    "peeringdb.net",
+                    &database_url,
+                    &format!("data loader task failed: {e}"),
+                )
+                .await;
+                exit(11);
+            }
+        };
+        if let Err(code) = refresh::run_tables(tables, data_as_of, &database_url).await {
             exit_code = code;
         }
     } else if cli.command == Commands::Irr {
