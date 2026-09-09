@@ -63,6 +63,9 @@ jobs:
       - name: Run tests with default features
         run: cargo test
 
+      - name: Run pg_inserter tests (feature-gated bin)
+        run: cargo test --no-default-features --features pg-inserter-cli --bin pg_inserter
+
       - name: Run clippy on all features
         run: cargo clippy --all-features -- -D warnings
 

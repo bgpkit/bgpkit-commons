@@ -52,8 +52,10 @@ pub fn parse_reader<R: Read>(reader: R) -> impl Iterator<Item = Result<Delegated
 
 fn parse_line(line: &str) -> Result<Option<DelegatedRecord>> {
     let fields = line.split('|').collect::<Vec<_>>();
-    // RIR summary lines carry aggregate counts for a type, not records.
-    if fields.len() == 6 && fields[5] == "summary" {
+    // RIR summary lines (`registry|*|type|*|value|summary`) carry aggregate
+    // counts for a type, not records. Both wildcard positions are checked so
+    // a malformed six-field record still errors.
+    if fields.len() == 6 && fields[1] == "*" && fields[3] == "*" && fields[5] == "summary" {
         return Ok(None);
     }
     if fields.len() < 7 {
@@ -106,6 +108,15 @@ mod tests {
     #[test]
     fn malformed_short_line_is_an_error() {
         let input = "a|b|c|d|e\n";
+        let result: Vec<_> = parse_reader(input.as_bytes()).collect();
+        assert!(result.iter().any(|r| r.is_err()));
+    }
+
+    #[test]
+    fn summary_like_short_line_without_wildcards_is_an_error() {
+        // Six fields ending in "summary" but missing the `*` wildcard
+        // positions is malformed data, not a summary line.
+        let input = "arin|US|asn|1|5|summary\n";
         let result: Vec<_> = parse_reader(input.as_bytes()).collect();
         assert!(result.iter().any(|r| r.is_err()));
     }
