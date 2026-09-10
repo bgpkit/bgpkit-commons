@@ -12,7 +12,7 @@ use std::io::{BufRead, BufReader, Read};
 
 use tracing::{info, warn};
 
-use crate::irr::sources::{DumpFormat, IrrDumpUrl, IrrSource, source_by_name};
+use crate::irr::sources::{DumpFormat, IrrDumpUrl, IrrSource, Transport, source_by_name};
 use crate::irr::types::IrrObjectType;
 use crate::irr::types::{IrrAttribute, IrrObject, IrrRecord};
 use crate::{BgpkitCommonsError, Result};
@@ -231,7 +231,16 @@ pub fn fetch(source: &IrrSource, object_type: IrrObjectType) -> Result<IrrReader
 }
 
 fn fetch_dump_url(dump_url: &IrrDumpUrl) -> Result<Box<dyn Read>> {
-    Ok(oneio::get_reader(&dump_url.url)?)
+    match dump_url.transport {
+        // IRR dumps are large (whole databases can be hundreds of MB) and are
+        // parsed incrementally over minutes; the resumable HTTP reader
+        // reconnects with Range requests if the connection drops mid-transfer
+        // (oneio >= 0.26).
+        Transport::Https => Ok(oneio::get_resumable_http_reader(&dump_url.url)?),
+        // FTP sources (e.g. RADB) use the plain reader: the resumable reader
+        // is HTTP-only and would fail building an HTTP request for an FTP URL.
+        Transport::Ftp => Ok(oneio::get_reader(&dump_url.url)?),
+    }
 }
 
 /// Parse a dump file from any reader (for testing or custom I/O).

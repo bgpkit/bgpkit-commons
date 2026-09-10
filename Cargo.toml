@@ -24,6 +24,7 @@ ipnet-trie = { version = "0.3.0", optional = true }
 oneio = { version = "0.26", optional = true, features = [
     "json",
     "xz",
+    "gz",
     "reqwest-gzip",
     "rustls",
     "ftp",
@@ -52,7 +53,7 @@ dotenvy = { version = "0.15", optional = true }
 [dev-dependencies]
 tracing-subscriber = "0.3"
 serde_json = "1"
-oneio = { version = "0.26", features = ["json", "xz", "reqwest-gzip", "rustls", "ftp"] }
+oneio = { version = "0.26", features = ["json", "xz", "gz", "reqwest-gzip", "rustls", "ftp"] }
 
 
 [features]
