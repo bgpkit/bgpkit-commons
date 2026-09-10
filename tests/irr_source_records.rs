@@ -33,6 +33,37 @@ source:         TEST
 }
 
 #[test]
+fn raw_parser_skips_plus_banners_and_keeps_plus_continuations() {
+    // RIPE dumps carry decorative '+' separator lines between objects, and
+    // sometimes wrap key material inside attributes with '+' continuations.
+    // ARIN dumps end with a bare `EOF` marker line.
+    let input = "\
++               ----------------------------+
+aut-num: AS13335
+mntner:  TEST-MNT
+auth:    PGPKEY-ABCD
++        4GcKOg6XM9/+6+OWj57o+
+source:  TEST
++               ----------------------------+
+EOF
+";
+
+    let records = parse_reader(Cursor::new(input), DumpFormat::WholeDb)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    assert_eq!(records.len(), 1);
+    let record = &records[0];
+    assert_eq!(record.object_type, "aut-num");
+    // The '+' continuation inside `auth:` is preserved; the decorative
+    // separators between objects are not.
+    assert_eq!(record.attributes[2].name, "auth");
+    assert_eq!(
+        record.attributes[2].value,
+        "PGPKEY-ABCD\n4GcKOg6XM9/+6+OWj57o+"
+    );
+}
+
+#[test]
 fn raw_parser_returns_malformed_objects_as_errors() {
     let input = "aut-num: AS13335\nthis is not an attribute\n";
     let mut records = parse_reader(Cursor::new(input), DumpFormat::WholeDb);

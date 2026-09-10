@@ -31,8 +31,10 @@ pub struct DelegatedRecord {
 
 /// Parse delegated-statistics records from a caller-provided reader.
 ///
-/// Empty lines and comments are ignored. All well-formed source records are
-/// returned without filtering by record type, status, country, or ASN range.
+/// Empty lines, comments, and RIR summary lines (`registry|*|type|*|value|summary`,
+/// which carry aggregate counts rather than records) are ignored. All
+/// well-formed source records are returned without filtering by record type,
+/// status, country, or ASN range.
 pub fn parse_reader<R: Read>(reader: R) -> impl Iterator<Item = Result<DelegatedRecord>> {
     BufReader::new(reader)
         .lines()
@@ -43,13 +45,19 @@ pub fn parse_reader<R: Read>(reader: R) -> impl Iterator<Item = Result<Delegated
                 if line.is_empty() || line.starts_with('#') {
                     return None;
                 }
-                Some(parse_line(line))
+                parse_line(line).transpose()
             }
         })
 }
 
-fn parse_line(line: &str) -> Result<DelegatedRecord> {
+fn parse_line(line: &str) -> Result<Option<DelegatedRecord>> {
     let fields = line.split('|').collect::<Vec<_>>();
+    // RIR summary lines (`registry|*|type|*|value|summary`) carry aggregate
+    // counts for a type, not records. Both wildcard positions are checked so
+    // a malformed six-field record still errors.
+    if fields.len() == 6 && fields[1] == "*" && fields[3] == "*" && fields[5] == "summary" {
+        return Ok(None);
+    }
     if fields.len() < 7 {
         return Err(BgpkitCommonsError::invalid_format(
             "delegated statistics record",
@@ -58,7 +66,7 @@ fn parse_line(line: &str) -> Result<DelegatedRecord> {
         ));
     }
 
-    Ok(DelegatedRecord {
+    Ok(Some(DelegatedRecord {
         registry: fields[0].to_string(),
         country: fields[1].to_string(),
         record_type: fields[2].to_string(),
@@ -70,10 +78,46 @@ fn parse_line(line: &str) -> Result<DelegatedRecord> {
             .iter()
             .map(|value| (*value).to_string())
             .collect(),
-    })
+    }))
 }
 
 /// Open a delegated-statistics artifact for streaming parsing.
 pub fn fetch(url: &str) -> Result<Box<dyn Read>> {
     Ok(oneio::get_reader(url)?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse_all(input: &str) -> Vec<DelegatedRecord> {
+        parse_reader(input.as_bytes())
+            .collect::<Result<Vec<_>>>()
+            .unwrap()
+    }
+
+    #[test]
+    fn skips_comments_blanks_and_summary_lines() {
+        let input =
+            "# header\n\narin|*|asn|*|32961|summary\nripencc|NL|asn|1|1|20240101|allocated\n";
+        let records = parse_all(input);
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].registry, "ripencc");
+    }
+
+    #[test]
+    fn malformed_short_line_is_an_error() {
+        let input = "a|b|c|d|e\n";
+        let result: Vec<_> = parse_reader(input.as_bytes()).collect();
+        assert!(result.iter().any(|r| r.is_err()));
+    }
+
+    #[test]
+    fn summary_like_short_line_without_wildcards_is_an_error() {
+        // Six fields ending in "summary" but missing the `*` wildcard
+        // positions is malformed data, not a summary line.
+        let input = "arin|US|asn|1|5|summary\n";
+        let result: Vec<_> = parse_reader(input.as_bytes()).collect();
+        assert!(result.iter().any(|r| r.is_err()));
+    }
 }

@@ -12,7 +12,7 @@ use std::io::{BufRead, BufReader, Read};
 
 use tracing::{info, warn};
 
-use crate::irr::sources::{DumpFormat, IrrDumpUrl, IrrSource, source_by_name};
+use crate::irr::sources::{DumpFormat, IrrDumpUrl, IrrSource, Transport, source_by_name};
 use crate::irr::types::IrrObjectType;
 use crate::irr::types::{IrrAttribute, IrrObject, IrrRecord};
 use crate::{BgpkitCommonsError, Result};
@@ -84,7 +84,13 @@ impl<R: Read> Iterator for IrrRecordIter<R> {
 
             let line = String::from_utf8_lossy(&self.line);
             let line = line.trim_end_matches(['\n', '\r']);
-            if line.trim().is_empty() || line.starts_with('#') || line.starts_with('%') {
+            // ARIN (and some other registries) terminate their whole-DB dumps
+            // with a bare `EOF` marker line.
+            if line.trim().is_empty()
+                || line.starts_with('#')
+                || line.starts_with('%')
+                || line.trim() == "EOF"
+            {
                 if self.object_lines.is_empty() {
                     continue;
                 }
@@ -108,6 +114,20 @@ fn parse_record_lines(lines: Vec<String>) -> Result<IrrRecord> {
             };
             attribute.value.push('\n');
             attribute.value.push_str(line.trim());
+            continue;
+        }
+        if line.starts_with('+') || line.starts_with('-') {
+            // RIPE dumps contain decorative banner/separator lines starting
+            // with '+' or '-'. When an attribute is open, treat the line as a
+            // continuation (some dumps wrap key material this way), stripping
+            // the decorative marker; otherwise skip it as decoration between
+            // objects.
+            if let Some(attribute) = attributes.last_mut() {
+                attribute.value.push('\n');
+                attribute
+                    .value
+                    .push_str(line.trim().trim_start_matches(['+', '-']).trim());
+            }
             continue;
         }
 
@@ -211,7 +231,16 @@ pub fn fetch(source: &IrrSource, object_type: IrrObjectType) -> Result<IrrReader
 }
 
 fn fetch_dump_url(dump_url: &IrrDumpUrl) -> Result<Box<dyn Read>> {
-    Ok(oneio::get_reader(&dump_url.url)?)
+    match dump_url.transport {
+        // IRR dumps are large (whole databases can be hundreds of MB) and are
+        // parsed incrementally over minutes; the resumable HTTP reader
+        // reconnects with Range requests if the connection drops mid-transfer
+        // (oneio >= 0.26).
+        Transport::Https => Ok(oneio::get_resumable_http_reader(&dump_url.url)?),
+        // FTP sources (e.g. RADB) use the plain reader: the resumable reader
+        // is HTTP-only and would fail building an HTTP request for an FTP URL.
+        Transport::Ftp => Ok(oneio::get_reader(&dump_url.url)?),
+    }
 }
 
 /// Parse a dump file from any reader (for testing or custom I/O).
