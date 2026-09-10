@@ -5,6 +5,21 @@
 //! atomically replaces its table via a staging COPY + swap, so readers never
 //! see an empty or half-written table. Every run is recorded in
 //! `meta.ingest_run` for provenance.
+//!
+//! Privileges: the connecting role needs `USAGE` and `CREATE` on each target
+//! schema (or database-level `CREATE` so the loader can create them on the
+//! first run); the loader owns the tables it creates. The swap replaces each
+//! live table with a new OID, so per-table `GRANT`s do not carry over —
+//! consumers must be granted read access via default privileges, which the
+//! renamed staging tables inherit at creation time:
+//!
+//! ```sql
+//! ALTER DEFAULT PRIVILEGES FOR ROLE <loader> IN SCHEMA <schema>
+//!     GRANT SELECT ON TABLES TO <consumer>;
+//! ```
+//!
+//! Views or foreign keys depending on a live table block its swap; the
+//! loader fails loudly rather than silently dropping them.
 
 mod asndata;
 mod irr;
