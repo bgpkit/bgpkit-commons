@@ -1,0 +1,12 @@
+# Build context exclusions for the images in docker/ (see docker/README.md).
+target/
+.git/
+.github/
+
+# Dockerfiles and docs are not build inputs.
+docker/
+
+# Never ship local credentials into a build context.
+.env
+.env.*
+docker/*.env

@@ -177,6 +177,35 @@ commons-export/
   asninfo.jsonl        # legacy merged output (--with-asninfo-jsonl)
 ```
 
+## PostgreSQL loading
+
+The `pg-inserter-cli` feature adds the `pg_inserter` binary, which loads BGP
+reference data into PostgreSQL. The library itself stays free of PostgreSQL
+dependencies. Each source owns its own schema (`asndata`, `peeringdb`, `irr`) and
+refreshes independently: rows are COPYed into staging tables and published with
+an atomic swap, with run provenance in `meta.ingest_run`.
+
+```sh
+cargo install bgpkit-commons --features pg-inserter-cli
+
+export DATABASE_URL="postgresql://pg_inserter@db.example:5432/bgpkit_broker"
+export PEERINGDB_API_KEY="..."   # required for the full peeringdb mirror
+
+pg_inserter asndata     # asnames, as2org, population, hegemony, delegated
+pg_inserter peeringdb   # full PeeringDB table mirror
+pg_inserter irr         # RPSL object store
+```
+
+Container image (built from this repository, see `docker/README.md`):
+
+```sh
+docker build -f docker/pg-inserter.Dockerfile -t bgpkit/pg-inserter:dev .
+docker run --rm --env-file pg-inserter.env bgpkit/pg-inserter:dev asndata
+```
+
+See `docker/README.md` for the image catalog and the credential contract, and
+`src/bin/pg_inserter/main.rs` for the target schema and privilege requirements.
+
 ## Feature flags
 
 | Feature | Description |
@@ -193,6 +222,7 @@ commons-export/
 | `all` *(default)* | Enables all data modules above |
 | `export` | Parquet export of all loaded sources (adds `arrow` + `parquet`) |
 | `export-cli` | Adds the `bgpkit-export` binary (adds `clap` + `tracing-subscriber`) |
+| `pg-inserter-cli` | Adds the `pg_inserter` binary (PostgreSQL reference-data loader) |
 
 Minimal build:
 
