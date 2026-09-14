@@ -46,6 +46,11 @@ tracing-subscriber = { version = "0.3", optional = true }
 # pg_inserter-only deps (behind `pg-inserter-cli` feature)
 tokio = { version = "1", features = ["net", "rt-multi-thread", "macros", "time", "sync"], optional = true }
 tokio-postgres = { version = "0.7", features = ["with-chrono-0_4"], optional = true }
+# TLS backend for pg_inserter: `ring` avoids the cmake/aws-lc-rs build dependency.
+tokio-postgres-rustls = { version = "0.14", optional = true }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging", "tls12"], optional = true }
+rustls-native-certs = { version = "0.8", optional = true }
+rustls-pemfile = { version = "2", optional = true }
 futures-util = { version = "0.3", optional = true }
 bytes = { version = "1", optional = true }
 dotenvy = { version = "0.15", optional = true }
@@ -77,7 +82,7 @@ export = ["dep:arrow", "dep:parquet", "all"]
 export-cli = ["export", "dep:clap", "dep:tracing-subscriber"]
 
 # pg_inserter CLI: adds the pg_inserter binary (PostgreSQL loader for asinfo/delegated data)
-pg-inserter-cli = ["dep:tokio", "dep:tokio-postgres", "dep:futures-util", "dep:bytes", "dep:dotenvy", "dep:clap", "dep:tracing-subscriber", "asinfo", "delegated"]
+pg-inserter-cli = ["dep:tokio", "dep:tokio-postgres", "dep:tokio-postgres-rustls", "dep:rustls", "dep:rustls-native-certs", "dep:rustls-pemfile", "dep:futures-util", "dep:bytes", "dep:dotenvy", "dep:clap", "dep:tracing-subscriber", "asinfo", "delegated"]
 
 # Convenience feature to enable all modules
 all = ["asinfo", "as2rel", "bogons", "countries", "delegated", "irr", "mrt_collectors", "peeringdb", "rpki"]

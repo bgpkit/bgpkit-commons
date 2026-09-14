@@ -203,8 +203,8 @@ docker build -f docker/pg-inserter.Dockerfile -t bgpkit/pg-inserter:dev .
 docker run --rm --env-file docker/pg-inserter.env bgpkit/pg-inserter:dev asndata
 ```
 
-The image runs unprivileged and connects over plain TCP (no TLS): keep it on the
-trusted network that reaches the database.
+The image runs unprivileged; TLS follows the `sslmode` parameter in the
+connection string (`prefer` by default: TLS when the server offers it).
 
 See `docker/README.md` for the image catalog and the credential contract, and
 `src/bin/pg_inserter/main.rs` for the target schema and privilege requirements.

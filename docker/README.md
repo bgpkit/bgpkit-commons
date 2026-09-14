@@ -49,11 +49,22 @@ a connection string or API key into the image.
 
 ## Connection security
 
-`pg_inserter` connects with `tokio_postgres` over plain TCP (`NoTls`), the same
-as the other BGPKIT data jobs: the password is SCRAM-authenticated but the link
-is not encrypted. Run the image on the trusted network that reaches the database
-(loopback, the Docker bridge, or the tailnet) and do not expose the database to
-untrusted networks. TLS support is not implemented.
+TLS follows PostgreSQL's `sslmode` parameter in `DATABASE_URL`, so the same
+image covers a loopback/bridge connection and a remote one:
+
+| `sslmode` | Behavior |
+|-----------|----------|
+| `disable` | never negotiate TLS |
+| `prefer` (default) | use TLS when the server offers it, plaintext otherwise; certificates are not verified |
+| `require` | TLS mandatory; certificates are not verified unless `sslrootcert` is given, in which case the chain is verified |
+| `verify-ca` | TLS mandatory; chain verified against `sslrootcert` (or the system roots), hostname not checked |
+| `verify-full` | TLS mandatory; chain and hostname verified |
+
+`sslrootcert=/path/to/ca.pem` supplies the trust anchors for the verifying
+modes; without it they use the image's system trust store. `sslmode=allow` is
+rejected (use `prefer`). `prefer` and `require` encrypt without authenticating
+the peer, which protects against passive observers only; use `verify-ca` or
+`verify-full` when the server certificate has to be proven.
 
 ## Build and smoke test
 

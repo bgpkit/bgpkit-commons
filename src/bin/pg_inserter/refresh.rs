@@ -2,11 +2,12 @@
 //! lock, staging COPY, empty-dataset guard, atomic swap, and
 //! `meta.ingest_run` provenance.
 
+use super::tls::{self, ConnectionSettings};
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use futures_util::SinkExt;
 use std::pin::Pin;
-use tokio_postgres::{Client, CopyInSink, NoTls};
+use tokio_postgres::{Client, CopyInSink};
 use tracing::{error, info, warn};
 
 pub(crate) const SOURCE_REVISION: &str = env!("CARGO_PKG_VERSION");
@@ -154,17 +155,17 @@ pub(crate) async fn run_tables(
 }
 
 async fn connect(database_url: &str) -> Result<Client, (i32, String)> {
-    info!("connecting to PostgreSQL ...");
-    let (client, connection) = match tokio_postgres::connect(database_url, NoTls).await {
-        Ok(pair) => pair,
-        Err(e) => return Err((14, format!("failed to connect to PostgreSQL: {e}"))),
-    };
-    tokio::spawn(async move {
-        if let Err(e) = connection.await {
-            error!("postgres connection error: {e}");
+    let settings = match ConnectionSettings::parse(database_url) {
+        Ok(settings) => settings,
+        Err(message) => {
+            let message = format!("invalid connection string: {message}");
+            error!("{message}");
+            return Err((14, message));
         }
-    });
-    Ok(client)
+    };
+    tls::connect(&settings)
+        .await
+        .map_err(|message| (14, message))
 }
 
 /// Write one table snapshot: advisory lock, staging COPY, empty-dataset
@@ -472,18 +473,19 @@ async fn record_error_row(
     started_at: DateTime<Utc>,
     message: &str,
 ) {
-    let (client, connection) = match tokio_postgres::connect(database_url, NoTls).await {
-        Ok(pair) => pair,
-        Err(e) => {
-            warn!("{task}: could not connect to record ingest_run error: {e}");
+    let client = match ConnectionSettings::parse(database_url) {
+        Ok(settings) => match tls::connect(&settings).await {
+            Ok(client) => client,
+            Err(message) => {
+                warn!("{task}: could not connect to record ingest_run error: {message}");
+                return;
+            }
+        },
+        Err(message) => {
+            warn!("{task}: invalid connection string: {message}");
             return;
         }
     };
-    tokio::spawn(async move {
-        if let Err(e) = connection.await {
-            warn!("postgres connection error: {e}");
-        }
-    });
     // Best-effort DDL: when the failure happened before the first run's DDL
     // (e.g. the data load failed), the provenance table may not exist yet.
     let _ = client

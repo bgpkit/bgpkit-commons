@@ -11,7 +11,7 @@
 #   PEERINGDB_API_KEY  PeeringDB API key (required for the full peeringdb mirror)
 #
 # See docker/README.md for run examples, the credential contract, and the
-# plaintext-connection (NoTls) limitation.
+# `sslmode` TLS behavior.
 
 FROM rust:1.97 AS build
 WORKDIR /build
