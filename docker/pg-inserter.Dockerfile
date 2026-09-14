@@ -10,7 +10,8 @@
 #   DATABASE_URL       PostgreSQL connection string (required)
 #   PEERINGDB_API_KEY  PeeringDB API key (required for the full peeringdb mirror)
 #
-# See docker/README.md for run examples and the credential contract.
+# See docker/README.md for run examples, the credential contract, and the
+# plaintext-connection (NoTls) limitation.
 
 FROM rust:1.97 AS build
 WORKDIR /build
@@ -33,6 +34,12 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# The loader needs no privileges: it binds no port and writes nothing outside
+# /tmp. Fixed uid/gid so a mounted `.env` can be made readable with chown.
+RUN groupadd --gid 10001 loader \
+    && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin loader \
+    && install -d -o loader -g loader /data
+
 COPY --from=build /build/target/release/pg_inserter /usr/local/bin/pg_inserter
 
 LABEL org.opencontainers.image.title="pg_inserter" \
@@ -42,6 +49,7 @@ LABEL org.opencontainers.image.title="pg_inserter" \
 
 # Working directory for a mounted `.env` (dotenvy reads it from the working
 # directory). Environment variables remain the primary credential source.
+USER loader
 WORKDIR /data
 
 ENTRYPOINT ["/usr/local/bin/pg_inserter"]

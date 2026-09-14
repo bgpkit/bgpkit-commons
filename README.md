@@ -200,8 +200,11 @@ Container image (built from this repository, see `docker/README.md`):
 
 ```sh
 docker build -f docker/pg-inserter.Dockerfile -t bgpkit/pg-inserter:dev .
-docker run --rm --env-file pg-inserter.env bgpkit/pg-inserter:dev asndata
+docker run --rm --env-file docker/pg-inserter.env bgpkit/pg-inserter:dev asndata
 ```
+
+The image runs unprivileged and connects over plain TCP (no TLS): keep it on the
+trusted network that reaches the database.
 
 See `docker/README.md` for the image catalog and the credential contract, and
 `src/bin/pg_inserter/main.rs` for the target schema and privilege requirements.

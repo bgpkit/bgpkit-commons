@@ -9,4 +9,4 @@ docker/
 # Never ship local credentials into a build context.
 .env
 .env.*
-docker/*.env
+*.env

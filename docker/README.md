@@ -9,11 +9,12 @@ wired up.
 |-------|------------|--------|----------------|
 | `bgpkit/pg-inserter` | `docker/pg-inserter.Dockerfile` | `pg_inserter` | `pg-inserter-cli` |
 
+Images run as an unprivileged user (uid/gid 10001).
+
 ## Credential contract
 
 The images hold no credentials and no `.env` file. Everything secret is supplied
-at run time through environment variables, so the same image runs against any
-database:
+at run time through environment variables:
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
@@ -23,8 +24,8 @@ database:
 Passing them:
 
 ```sh
-# env file, mode 600, never committed (.gitignore covers docker/*.env)
-docker run --rm --env-file pg-inserter.env bgpkit/pg-inserter:dev asndata
+# env file in the ignored location, mode 600, never committed
+docker run --rm --env-file docker/pg-inserter.env bgpkit/pg-inserter:dev asndata
 
 # single variable (keep secrets out of shell history where possible)
 docker run --rm -e DATABASE_URL="$DATABASE_URL" bgpkit/pg-inserter:dev irr
@@ -32,15 +33,27 @@ docker run --rm -e DATABASE_URL="$DATABASE_URL" bgpkit/pg-inserter:dev irr
 # orchestrator: use the platform's secret store and pass the same names
 ```
 
-A `.env` file can also be mounted read-only at the working directory; the binary
-loads it via `dotenvy`:
+Copy `docker/pg-inserter.env.example` to `docker/pg-inserter.env` first: that
+path is covered by `.gitignore` (`docker/*.env`) and by `.dockerignore`.
+
+A `.env` file can also be mounted read-only at the working directory, where
+`dotenvy` picks it up. The file must be readable by uid 10001:
 
 ```sh
-docker run --rm -v /etc/bgpkit/pg-inserter.env:/data/.env:ro bgpkit/pg-inserter:dev asndata
+chown 10001 docker/pg-inserter.env && chmod 600 docker/pg-inserter.env
+docker run --rm -v "$PWD/docker/pg-inserter.env:/data/.env:ro" bgpkit/pg-inserter:dev asndata
 ```
 
-Never bake a connection string or API key into the image, and prefer
-`--env-file` over `-e` for anything that contains a password.
+Prefer `--env-file` over `-e` for anything containing a password, and never bake
+a connection string or API key into the image.
+
+## Connection security
+
+`pg_inserter` connects with `tokio_postgres` over plain TCP (`NoTls`), the same
+as the other BGPKIT data jobs: the password is SCRAM-authenticated but the link
+is not encrypted. Run the image on the trusted network that reaches the database
+(loopback, the Docker bridge, or the tailnet) and do not expose the database to
+untrusted networks. TLS support is not implemented.
 
 ## Build and smoke test
 
