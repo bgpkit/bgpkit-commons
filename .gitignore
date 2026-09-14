@@ -9,5 +9,8 @@ as2org.jsonl
 .env
 .env.*
 
+# Docker run-time credential files (see docker/README.md)
+docker/*.env
+
 # Claude Code
 CLAUDE.md

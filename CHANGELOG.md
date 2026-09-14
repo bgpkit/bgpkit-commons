@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Added
+
+* `pg-inserter-cli` feature and `pg_inserter` binary: loads BGP reference data into PostgreSQL with one schema per source (`asndata`, `peeringdb`, `irr`), independent snapshot refreshes via a staging COPY + atomic swap, and run provenance in `meta.ingest_run` ([#46](https://github.com/bgpkit/bgpkit-commons/pull/46)).
+* Container image `bgpkit/pg-inserter`, built from `docker/pg-inserter.Dockerfile` with credentials supplied only through run-time environment variables (`docker/README.md`) ([#48](https://github.com/bgpkit/bgpkit-commons/pull/48)).
+* `pg_inserter`: TLS is negotiated from the connection string like libpq's `sslmode` (`disable`, `prefer` default, `require`, `verify-ca`, `verify-full`) with `sslrootcert` for the verifying modes, so a deployment can move between plaintext and encrypted database links without a rebuild. `prefer` and `require` encrypt without verifying the certificate; `verify-ca`/`verify-full` verify the chain (and, for the latter, the hostname).
+
+### Fixed
+
+* `delegated`: RIR summary lines (`registry|*|type|*|value|summary`) are skipped instead of failing the record parse ([#46](https://github.com/bgpkit/bgpkit-commons/pull/46)).
+* `irr`: RPSL parsing tolerates RIPE `+`/`-` decorative lines and the trailing ARIN `EOF` marker, and HTTP dumps are fetched with oneio's resumable reader so long transfers survive dropped connections ([#46](https://github.com/bgpkit/bgpkit-commons/pull/46)).
+
 ## v0.13.1 - 2026-09-09
 
 ### Dependencies

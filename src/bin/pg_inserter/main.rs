@@ -25,6 +25,7 @@ mod asndata;
 mod irr;
 mod peeringdb;
 mod refresh;
+mod tls;
 
 use asndata::Task;
 use clap::{Parser, Subcommand};
@@ -77,6 +78,11 @@ async fn main() {
         );
         exit(10);
     };
+    // Reject a bad TLS mode before any data is downloaded or written.
+    if let Err(message) = tls::ConnectionSettings::parse(&database_url) {
+        eprintln!("invalid DATABASE_URL: {message}");
+        exit(10);
+    }
 
     let mut exit_code = 0;
     if cli.command == Commands::Peeringdb {
