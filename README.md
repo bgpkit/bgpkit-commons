@@ -32,7 +32,7 @@ assert!(commons.bogons_match("23456").unwrap()); // AS23456 is reserved
 | `bogons` | `bogons` | IANA special registries | Reserved/bogon ASN and IP prefix detection |
 | `countries` | `countries` | GeoNames | ISO country codes, capitals, continents, neighbors |
 | `mrt_collectors` | `mrt_collectors` | RouteViews, RIPE RIS | BGP collector metadata (name, project, country, dates) |
-| `peeringdb` | `peeringdb` | PeeringDB API | All 13 endpoints: networks, IXPs, facilities, orgs, carriers, AS-set names |
+| `peeringdb` | `peeringdb` | PeeringDB API | 13 supported endpoints: networks, IXPs, facilities, orgs, carriers, AS-set names |
 | `rpki` | `rpki` | Cloudflare, RIPE NCC, RPKIviews, RPKISPOOL | ROA and ASPA validation (real-time and historical) |
 | `delegated` | `delegated` | NRO/RIR delegated stats | RIR allocation records (ASN, IPv4, IPv6) |
 | `irr` | `irr` | RIPE, APNIC, ARIN, LACNIC, AFRINIC, NTTCOM, RADB, ... | RPSL aut-num, route, route6, as-set records |
@@ -110,7 +110,7 @@ assert!(commons.bogons_match_asn(65535).unwrap());       // reserved ASN
 ```rust
 use bgpkit_commons::peeringdb::Peeringdb;
 
-let pdb = Peeringdb::new().unwrap(); // all 13 endpoints
+let pdb = Peeringdb::new().unwrap(); // the 13 supported endpoints
 let cf = pdb.get_network(13335).unwrap();
 println!("{}: {} IXP memberships", cf.name.unwrap(), cf.ix_count.unwrap());
 ```
@@ -160,7 +160,7 @@ bgpkit-export --output-dir ./output --with-peeringdb --with-irr --with-rpki
 bgpkit-export --output-dir ./output --with-asninfo-jsonl
 ```
 
-Output layout (one file per source):
+Output layout (one file per source; `peeringdb/`, `irr/`, and `rpki/` exports are not yet implemented):
 
 ```
 commons-export/
@@ -189,10 +189,10 @@ an atomic swap, with run provenance in `meta.ingest_run`.
 cargo install bgpkit-commons --features pg-inserter-cli
 
 export DATABASE_URL="postgresql://pg_inserter@db.example:5432/bgpkit_broker"
-export PEERINGDB_API_KEY="..."   # required for the full peeringdb mirror
+export PEERINGDB_API_KEY="..."   # required for the peeringdb mirror
 
 pg_inserter asndata     # asnames, as2org, population, hegemony, delegated
-pg_inserter peeringdb   # full PeeringDB table mirror
+pg_inserter peeringdb   # PeeringDB table mirror
 pg_inserter irr         # RPSL object store
 ```
 
@@ -220,7 +220,7 @@ See `docker/README.md` for the image catalog and the credential contract, and
 | `delegated` | RIR delegated-statistics parser |
 | `irr` | IRR RPSL record parsing (aut-num, route, as-set) |
 | `mrt_collectors` | MRT collector metadata |
-| `peeringdb` | PeeringDB API data (all 13 endpoints) |
+| `peeringdb` | PeeringDB API data (13 supported endpoints) |
 | `rpki` | RPKI validation (ROA and ASPA) |
 | `all` *(default)* | Enables all data modules above |
 | `export` | Parquet export of all loaded sources (adds `arrow` + `parquet`) |

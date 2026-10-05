@@ -79,7 +79,7 @@
 //!
 //! - Load: `Peeringdb::new()` (all tables), `Peeringdb::new_networks_only()` (lightweight)
 //! - Access: `get_network(asn)`, `get_ixp(ix_id)`, `get_ixp_memberships(asn)`, `lookup_ixp_prefix(prefix)`, `get_facility(fac_id)`
-//! - Typed structs and an ASN-to-AS-set map mirroring all 13 PeeringDB API endpoints:
+//! - Typed structs and an ASN-to-AS-set map mirroring the 13 supported PeeringDB API endpoints:
 //!   networks, internet exchanges, IXP prefixes, IXP membership, facilities, organizations,
 //!   carriers, AS-set names, and more
 //! - `PeeringdbData` is a type alias for the full `Network` struct (backward compatible)

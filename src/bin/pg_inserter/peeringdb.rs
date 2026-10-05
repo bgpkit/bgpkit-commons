@@ -1,6 +1,6 @@
-//! `peeringdb` schema: full PeeringDB API mirror (13 tables).
+//! `peeringdb` schema: mirror of the 13 supported PeeringDB API tables.
 //!
-//! One `Peeringdb::new()` load (all 13 endpoints) is dumped into 13 snapshot
+//! One `Peeringdb::new()` load (the 13 supported endpoints) is dumped into 13 snapshot
 //! tables. Per-table shape: native PeeringDB id as PK, typed foreign-key and
 //! search columns, the complete API object in a `record` JSONB column, and
 //! `data_as_of`/`source_revision` provenance; `as_set` is the exception (no
@@ -15,7 +15,7 @@ use bgpkit_commons::peeringdb::{
 use serde::Serialize;
 use std::collections::HashMap;
 
-/// Load the full PeeringDB dataset and map it to `(TableSpec, lines)` pairs,
+/// Load the PeeringDB dataset and map it to `(TableSpec, lines)` pairs,
 /// one per table. Runs on the blocking pool.
 pub(crate) fn load_all(data_as_of: &str) -> Result<Vec<(TableSpec, Vec<String>)>, String> {
     let pdb = Peeringdb::new().map_err(|e| format!("failed to load PeeringDB data: {e}"))?;
