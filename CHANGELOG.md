@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 * `pg-inserter-cli` feature and `pg_inserter` binary: loads BGP reference data into PostgreSQL with one schema per source (`asndata`, `peeringdb`, `irr`), independent snapshot refreshes via a staging COPY + atomic swap, and run provenance in `meta.ingest_run` ([#46](https://github.com/bgpkit/bgpkit-commons/pull/46)).
 * Container image `bgpkit/pg-inserter`, built from `docker/pg-inserter.Dockerfile` with credentials supplied only through run-time environment variables (`docker/README.md`) ([#48](https://github.com/bgpkit/bgpkit-commons/pull/48)).
 * `pg_inserter`: TLS is negotiated from the connection string like libpq's `sslmode` (`disable`, `prefer` default, `require`, `verify-ca`, `verify-full`) with `sslrootcert` for the verifying modes, so a deployment can move between plaintext and encrypted database links without a rebuild. `prefer` and `require` encrypt without verifying the certificate; `verify-ca`/`verify-full` verify the chain (and, for the latter, the hostname).
+* `peeringdb`: new `as_set` table mirroring PeeringDB's `/api/as_set` endpoint (ASN -> registered as-set names), expanding the supported mirror to 13 tables; `pg_inserter` publishes it as `peeringdb.as_set` ([#49](https://github.com/bgpkit/bgpkit-commons/pull/49)).
 
 ### Fixed
 

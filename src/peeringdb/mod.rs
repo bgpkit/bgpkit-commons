@@ -31,6 +31,7 @@
 //! | [`Campus`] | `/campus` | Facility campus |
 //! | [`Carrier`] | `/carrier` | Transport carrier |
 //! | [`CarrierFacility`] | `/carrierfac` | Carrier–facility association |
+//! | *(map)* | `/as_set` | AS-set names by ASN |
 
 mod client;
 mod tables;
@@ -39,7 +40,8 @@ pub use tables::*;
 
 use std::collections::HashMap;
 
-use crate::Result;
+use crate::errors::data_sources;
+use crate::{BgpkitCommonsError, Result};
 use tracing::info;
 
 /// PeeringDB data container with all tables loaded from the API.
@@ -72,6 +74,9 @@ pub struct Peeringdb {
     pub carriers: HashMap<u32, Carrier>,
     /// Carrier–facility association records (`/carrierfac`).
     pub carrier_facilities: Vec<CarrierFacility>,
+    /// AS-set names by ASN (`/as_set`); the value is the raw published string
+    /// and may hold several space-separated names.
+    pub as_set: HashMap<u32, String>,
 }
 
 impl Peeringdb {
@@ -96,6 +101,7 @@ impl Peeringdb {
         let campuses = Self::load_table_id(client::CAMPUS_API_URL)?;
         let carriers = Self::load_table_id(client::CARRIER_API_URL)?;
         let carrier_facilities = Self::load_table(client::CARRIERFAC_API_URL)?;
+        let as_set = Self::load_as_set(client::AS_SET_API_URL)?;
         info!("loaded all PeeringDB tables");
         Ok(Self {
             networks,
@@ -110,6 +116,7 @@ impl Peeringdb {
             campuses,
             carriers,
             carrier_facilities,
+            as_set,
         })
     }
 
@@ -137,6 +144,7 @@ impl Peeringdb {
             campuses: HashMap::new(),
             carriers: HashMap::new(),
             carrier_facilities: Vec::new(),
+            as_set: HashMap::new(),
         })
     }
 
@@ -155,6 +163,58 @@ impl Peeringdb {
             .into_iter()
             .map(|r| (r.id(), r))
             .collect())
+    }
+
+    /// Load the `/as_set` map.
+    ///
+    /// Unlike the other tables, this endpoint returns a single ASN -> as-set
+    /// name object rather than a list of records, so it needs its own parser.
+    fn load_as_set(url: &str) -> Result<HashMap<u32, String>> {
+        let mut reader = client::get_peeringdb_reader(url)?;
+        let mut buf = String::new();
+        reader.read_to_string(&mut buf)?;
+        Self::parse_as_set(&buf)
+    }
+
+    /// Parse a raw `/as_set` response body into an ASN -> as-set names map.
+    ///
+    /// `data` must hold exactly one object whose keys are ASNs and whose
+    /// values are the raw published strings (kept verbatim, including any
+    /// space-separated names); other top-level fields such as `meta` are
+    /// ignored. Anything else is refused as a PeeringDB data-source error
+    /// rather than guessed at.
+    fn parse_as_set(buf: &str) -> Result<HashMap<u32, String>> {
+        let value: serde_json::Value = serde_json::from_str(buf)
+            .map_err(|e| as_set_parse_error(format!("malformed JSON: {e}")))?;
+
+        let data = value
+            .get("data")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| as_set_parse_error("expected a top-level object with a 'data' array"))?;
+
+        if data.len() != 1 {
+            return Err(as_set_parse_error(format!(
+                "expected exactly one object in 'data', got {} element(s)",
+                data.len()
+            )));
+        }
+
+        let obj = data[0]
+            .as_object()
+            .ok_or_else(|| as_set_parse_error("expected 'data[0]' to be an object"))?;
+
+        let mut as_set = HashMap::with_capacity(obj.len());
+        for (key, value) in obj {
+            let asn: u32 = key
+                .parse()
+                .map_err(|_| as_set_parse_error(format!("'{key}' is not a u32 ASN")))?;
+            let name = value.as_str().ok_or_else(|| {
+                as_set_parse_error(format!("value for ASN {asn} is not a string"))
+            })?;
+            as_set.insert(asn, name.to_string());
+        }
+
+        Ok(as_set)
     }
 
     // ---- Network accessors ----
@@ -241,6 +301,26 @@ impl Peeringdb {
     pub fn get_organization(&self, org_id: u32) -> Option<&Organization> {
         self.organizations.get(&org_id)
     }
+
+    // ---- AS-set accessors ----
+
+    /// Get the raw published as-set name(s) registered for an ASN (`/as_set`).
+    ///
+    /// Returns `None` when the ASN has no registered as-set.
+    pub fn get_as_set(&self, asn: u32) -> Option<&str> {
+        self.as_set.get(&asn).map(String::as_str)
+    }
+}
+
+/// Build the PeeringDB data-source error for an invalid `/as_set` response.
+///
+/// All `/as_set` shape-validation and JSON failures are wrapped this way so
+/// callers see one error kind naming both the data source and the endpoint.
+fn as_set_parse_error(reason: impl std::fmt::Display) -> BgpkitCommonsError {
+    BgpkitCommonsError::data_source_error(
+        data_sources::PEERINGDB,
+        format!("/as_set response is invalid: {reason}"),
+    )
 }
 
 /// Trait for structs that have an `id` field, used by `load_table_id`.
@@ -268,6 +348,7 @@ impl std::fmt::Debug for Peeringdb {
             .field("campuses", &self.campuses.len())
             .field("carriers", &self.carriers.len())
             .field("carrier_facilities", &self.carrier_facilities.len())
+            .field("as_set", &self.as_set.len())
             .finish()
     }
 }
@@ -446,6 +527,103 @@ mod tests {
         assert!(!nxl.is_rs_peer);
     }
 
+    // ---- /as_set parser tests (pure, no network) ----
+
+    /// Assert that `json` is refused as a PeeringDB data-source error naming
+    /// the `/as_set` endpoint. Every validation failure must be wrapped this
+    /// way instead of surfacing as a bare JSON error.
+    fn assert_invalid_as_set(json: &str) {
+        match Peeringdb::parse_as_set(json) {
+            Err(BgpkitCommonsError::DataSourceError {
+                data_source,
+                details,
+            }) => {
+                assert_eq!(data_source, data_sources::PEERINGDB);
+                assert!(
+                    details.contains("/as_set"),
+                    "error does not name the endpoint: {details}"
+                );
+            }
+            other => panic!("expected PeeringDB data-source error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_as_set_single_object() {
+        let json = r#"{"data":[{"13335":"AS13335:AS-CLOUDFLARE","15169":"RADB::AS-GOOGLE"}]}"#;
+        let map = Peeringdb::parse_as_set(json).unwrap();
+        assert_eq!(map.len(), 2);
+        assert_eq!(
+            map.get(&13335).map(String::as_str),
+            Some("AS13335:AS-CLOUDFLARE")
+        );
+        assert_eq!(map.get(&15169).map(String::as_str), Some("RADB::AS-GOOGLE"));
+    }
+
+    #[test]
+    fn test_parse_as_set_preserves_raw_values() {
+        // Values are kept verbatim, including several space-separated names.
+        let json = r#"{"data":[{"13335":"AS13335:AS-CLOUDFLARE AS13335:AS-CLOUDFLARE-V6"}]}"#;
+        let map = Peeringdb::parse_as_set(json).unwrap();
+        assert_eq!(
+            map.get(&13335).map(String::as_str),
+            Some("AS13335:AS-CLOUDFLARE AS13335:AS-CLOUDFLARE-V6")
+        );
+    }
+
+    #[test]
+    fn test_parse_as_set_empty_object_allowed() {
+        let map = Peeringdb::parse_as_set(r#"{"data":[{}]}"#).unwrap();
+        assert!(map.is_empty());
+    }
+
+    #[test]
+    fn test_parse_as_set_refuses_bare_array() {
+        assert_invalid_as_set("[]");
+    }
+
+    #[test]
+    fn test_parse_as_set_refuses_empty_data_array() {
+        assert_invalid_as_set(r#"{"data":[]}"#);
+    }
+
+    #[test]
+    fn test_parse_as_set_refuses_multiple_elements() {
+        assert_invalid_as_set(r#"{"data":[{"1":"AS-A"},{"2":"AS-B"}]}"#);
+    }
+
+    #[test]
+    fn test_parse_as_set_refuses_non_object_element() {
+        assert_invalid_as_set(r#"{"data":[["13335","AS-X"]]}"#);
+    }
+
+    #[test]
+    fn test_parse_as_set_refuses_non_array_data() {
+        assert_invalid_as_set(r#"{"data":{"13335":"AS-X"}}"#);
+    }
+
+    #[test]
+    fn test_parse_as_set_refuses_non_numeric_key() {
+        assert_invalid_as_set(r#"{"data":[{"AS13335":"AS-CLOUDFLARE"}]}"#);
+    }
+
+    #[test]
+    fn test_parse_as_set_refuses_out_of_range_key() {
+        // u32::MAX + 1 and negative keys are not valid ASNs.
+        assert_invalid_as_set(r#"{"data":[{"4294967296":"AS-X"}]}"#);
+        assert_invalid_as_set(r#"{"data":[{"-1":"AS-X"}]}"#);
+    }
+
+    #[test]
+    fn test_parse_as_set_refuses_non_string_value() {
+        assert_invalid_as_set(r#"{"data":[{"13335":42}]}"#);
+    }
+
+    #[test]
+    fn test_parse_as_set_refuses_malformed_json() {
+        assert_invalid_as_set(r#"{"data":[}"#);
+    }
+
     // Integration tests that require network access - marked as ignored by default
 
     #[test]
@@ -476,5 +654,32 @@ mod tests {
             !cf_ixps.is_empty(),
             "Cloudflare should have IXP memberships"
         );
+    }
+
+    #[test]
+    #[ignore]
+    fn test_peeringdb_as_set() {
+        // Live check of the `/as_set` endpoint only: the map must be non-empty
+        // and resolve through the accessor. Values are not pinned because the
+        // upstream data changes over time.
+        let as_set = Peeringdb::load_as_set(client::AS_SET_API_URL)
+            .expect("Failed to load PeeringDB /as_set");
+        let pdb = Peeringdb {
+            networks: HashMap::new(),
+            internet_exchanges: HashMap::new(),
+            ixp_lans: HashMap::new(),
+            ixp_prefixes: Vec::new(),
+            network_ixp_membership: Vec::new(),
+            facilities: HashMap::new(),
+            network_facilities: Vec::new(),
+            ixp_facilities: Vec::new(),
+            organizations: HashMap::new(),
+            campuses: HashMap::new(),
+            carriers: HashMap::new(),
+            carrier_facilities: Vec::new(),
+            as_set,
+        };
+        assert!(!pdb.as_set.is_empty());
+        assert!(pdb.get_as_set(13335).is_some());
     }
 }

@@ -17,6 +17,7 @@ pub(crate) const ORG_API_URL: &str = "https://www.peeringdb.com/api/org";
 pub(crate) const CAMPUS_API_URL: &str = "https://www.peeringdb.com/api/campus";
 pub(crate) const CARRIER_API_URL: &str = "https://www.peeringdb.com/api/carrier";
 pub(crate) const CARRIERFAC_API_URL: &str = "https://www.peeringdb.com/api/carrierfac";
+pub(crate) const AS_SET_API_URL: &str = "https://www.peeringdb.com/api/as_set";
 
 /// Get a reader for a PeeringDB API endpoint with proper authentication headers.
 ///
