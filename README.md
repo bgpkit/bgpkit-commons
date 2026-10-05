@@ -11,7 +11,7 @@ feature-gated module with lazy loading: call `load_xxx()` to fetch, then query.
 
 ```toml
 [dependencies]
-bgpkit-commons = "0.13"
+bgpkit-commons = "0.14"
 ```
 
 ```rust
@@ -134,7 +134,7 @@ Each upstream source is written as its own file with full source fields preserve
 
 ```toml
 [dependencies]
-bgpkit-commons = { version = "0.13", features = ["export"] }
+bgpkit-commons = { version = "0.14", features = ["export"] }
 ```
 
 ```rust
@@ -231,7 +231,7 @@ Minimal build:
 
 ```toml
 [dependencies]
-bgpkit-commons = { version = "0.13", default-features = false, features = ["bogons", "countries"] }
+bgpkit-commons = { version = "0.14", default-features = false, features = ["bogons", "countries"] }
 ```
 
 ## AsInfo loading profiles

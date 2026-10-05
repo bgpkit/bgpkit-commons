@@ -196,7 +196,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! bgpkit-commons = { version = "0.13", default-features = false, features = ["bogons", "countries"] }
+//! bgpkit-commons = { version = "0.14", default-features = false, features = ["bogons", "countries"] }
 //! ```
 
 #![doc(

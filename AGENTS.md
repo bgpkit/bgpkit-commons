@@ -20,7 +20,7 @@ BGPKIT-Commons is a Rust library for common BGP-related data and functions with 
 │   ├── bogons/             # Bogon detection (reserved IPs/ASNs)
 │   ├── countries/          # Country code mappings
 │   ├── mrt_collectors/     # BGP collector metadata
-│   ├── peeringdb/          # PeeringDB API data (all 13 endpoints)
+│   ├── peeringdb/          # PeeringDB API data (13 supported endpoints)
 │   └── rpki/               # RPKI validation (ROA/ASPA)
 ├── examples/               # Feature-gated usage examples
 └── tests/                  # Integration tests
