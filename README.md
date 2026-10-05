@@ -32,7 +32,7 @@ assert!(commons.bogons_match("23456").unwrap()); // AS23456 is reserved
 | `bogons` | `bogons` | IANA special registries | Reserved/bogon ASN and IP prefix detection |
 | `countries` | `countries` | GeoNames | ISO country codes, capitals, continents, neighbors |
 | `mrt_collectors` | `mrt_collectors` | RouteViews, RIPE RIS | BGP collector metadata (name, project, country, dates) |
-| `peeringdb` | `peeringdb` | PeeringDB API | All 12 endpoints: networks, IXPs, facilities, orgs, carriers |
+| `peeringdb` | `peeringdb` | PeeringDB API | All 13 endpoints: networks, IXPs, facilities, orgs, carriers, AS-set names |
 | `rpki` | `rpki` | Cloudflare, RIPE NCC, RPKIviews, RPKISPOOL | ROA and ASPA validation (real-time and historical) |
 | `delegated` | `delegated` | NRO/RIR delegated stats | RIR allocation records (ASN, IPv4, IPv6) |
 | `irr` | `irr` | RIPE, APNIC, ARIN, LACNIC, AFRINIC, NTTCOM, RADB, ... | RPSL aut-num, route, route6, as-set records |
@@ -110,7 +110,7 @@ assert!(commons.bogons_match_asn(65535).unwrap());       // reserved ASN
 ```rust
 use bgpkit_commons::peeringdb::Peeringdb;
 
-let pdb = Peeringdb::new().unwrap(); // all 12 endpoints
+let pdb = Peeringdb::new().unwrap(); // all 13 endpoints
 let cf = pdb.get_network(13335).unwrap();
 println!("{}: {} IXP memberships", cf.name.unwrap(), cf.ix_count.unwrap());
 ```
@@ -171,7 +171,7 @@ commons-export/
   mrt_collectors.parquet
   as_relationships.parquet
   rir_delegated.parquet
-  peeringdb/          # 12 endpoint tables (--with-peeringdb)
+  peeringdb/          # 13 endpoint tables (--with-peeringdb)
   irr/records.parquet  # RPSL records (--with-irr)
   rpki/               # ROAs + ASPAs (--with-rpki)
   asninfo.jsonl        # legacy merged output (--with-asninfo-jsonl)
@@ -220,7 +220,7 @@ See `docker/README.md` for the image catalog and the credential contract, and
 | `delegated` | RIR delegated-statistics parser |
 | `irr` | IRR RPSL record parsing (aut-num, route, as-set) |
 | `mrt_collectors` | MRT collector metadata |
-| `peeringdb` | PeeringDB API data (all 12 endpoints) |
+| `peeringdb` | PeeringDB API data (all 13 endpoints) |
 | `rpki` | RPKI validation (ROA and ASPA) |
 | `all` *(default)* | Enables all data modules above |
 | `export` | Parquet export of all loaded sources (adds `arrow` + `parquet`) |

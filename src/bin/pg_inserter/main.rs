@@ -60,7 +60,7 @@ enum Commands {
     Delegated,
     /// Run every asndata task sequentially
     Asndata,
-    /// peeringdb schema: full PeeringDB mirror (12 tables)
+    /// peeringdb schema: full PeeringDB mirror (13 tables)
     Peeringdb,
     /// irr schema: full IRR RPSL object store (snapshot-only)
     Irr,

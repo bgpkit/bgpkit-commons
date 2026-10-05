@@ -1,9 +1,10 @@
-//! `peeringdb` schema: full PeeringDB API mirror (12 tables).
+//! `peeringdb` schema: full PeeringDB API mirror (13 tables).
 //!
-//! One `Peeringdb::new()` load (all 12 endpoints) is dumped into 12 snapshot
+//! One `Peeringdb::new()` load (all 13 endpoints) is dumped into 13 snapshot
 //! tables. Per-table shape: native PeeringDB id as PK, typed foreign-key and
 //! search columns, the complete API object in a `record` JSONB column, and
-//! `data_as_of`/`source_revision` provenance. Per-table independence inside
+//! `data_as_of`/`source_revision` provenance; `as_set` is the exception (no
+//! `id`/`record`, its value is the payload). Per-table independence inside
 //! the PeeringDB family is deferred: the whole family refreshes atomically.
 
 use super::refresh::{SOURCE_REVISION, TableSpec, build_csv_line};
@@ -64,6 +65,7 @@ pub(crate) fn load_all(data_as_of: &str) -> Result<Vec<(TableSpec, Vec<String>)>
             CARRIERFAC_SPEC,
             dump_vec(&pdb.carrier_facilities, data_as_of, carrierfac_line)?,
         ),
+        (AS_SET_SPEC, dump_as_set(&pdb.as_set, data_as_of)?),
     ];
     Ok(tables)
 }
@@ -285,6 +287,25 @@ const CARRIERFAC_SPEC: TableSpec = TableSpec {
     index_swaps: &[("peeringdb.carrierfac_staging_pkey", "carrierfac_pkey")],
 };
 
+/// Shape exception to the other twelve tables: the upstream `/as_set`
+/// payload is a bare `{asn: name}` map, so there are no `id`/`record`
+/// columns; the string value itself is the payload.
+const AS_SET_SPEC: TableSpec = TableSpec {
+    task: "peeringdb.as_set",
+    table: "peeringdb.as_set",
+    staging_ddl: "CREATE TABLE peeringdb.as_set_staging (
+        asn bigint NOT NULL,
+        as_set text NOT NULL,
+        data_as_of timestamptz NOT NULL,
+        source_revision text NOT NULL
+    )",
+    copy_columns: "asn, as_set, data_as_of, source_revision",
+    index_ddl: &[
+        "ALTER TABLE peeringdb.as_set_staging ADD CONSTRAINT as_set_staging_pkey PRIMARY KEY (asn)",
+    ],
+    index_swaps: &[("peeringdb.as_set_staging_pkey", "as_set_pkey")],
+};
+
 // ---- row mapping -----------------------------------------------------------
 
 /// Serialize one record to a double-quoted JSON field. Serialization cannot
@@ -325,6 +346,25 @@ fn dump_networks(
                 record,
                 data_as_of,
             ))
+        })
+        .collect()
+}
+
+/// Dump the `/as_set` map: one line per ASN, sorted by ASN ascending.
+fn dump_as_set(map: &HashMap<u32, String>, data_as_of: &str) -> Result<Vec<String>, String> {
+    let mut asns: Vec<u32> = map.keys().copied().collect();
+    asns.sort_unstable();
+    asns.iter()
+        .map(|asn| {
+            let value = map
+                .get(asn)
+                .ok_or_else(|| format!("missing as_set entry {asn}"))?;
+            Ok(build_csv_line(&[
+                Some(asn.to_string()),
+                Some(value.clone()),
+                Some(data_as_of.to_string()),
+                Some(SOURCE_REVISION.to_string()),
+            ]))
         })
         .collect()
 }
@@ -494,5 +534,34 @@ mod tests {
             "2026-09-09T00:00:00+00:00",
         );
         assert!(line.starts_with("1,,\"3\",\"{"));
+    }
+
+    #[test]
+    fn as_set_lines_sorted_by_asn_numerically() {
+        let map = HashMap::from([
+            (10u32, "TEN".to_string()),
+            (2u32, "TWO".to_string()),
+            (1u32, "ONE".to_string()),
+        ]);
+        let lines = dump_as_set(&map, "2026-09-09T00:00:00+00:00").unwrap();
+        assert_eq!(lines.len(), 3);
+        // Numeric order: a lexicographic sort would yield 1, 10, 2.
+        assert!(lines[0].starts_with("\"1\","));
+        assert!(lines[1].starts_with("\"2\","));
+        assert!(lines[2].starts_with("\"10\","));
+    }
+
+    #[test]
+    fn as_set_line_escapes_csv_and_stays_one_four_field_line() {
+        let map = HashMap::from([(13335u32, "a,b\"c\nd".to_string())]);
+        let lines = dump_as_set(&map, "2026-09-09T00:00:00+00:00").unwrap();
+        assert_eq!(lines.len(), 1);
+        // Exact 4-field shape: asn, escaped value, data_as_of, source_revision.
+        assert_eq!(
+            lines[0],
+            format!(
+                "\"13335\",\"a,b\"\"c\nd\",\"2026-09-09T00:00:00+00:00\",\"{SOURCE_REVISION}\""
+            )
+        );
     }
 }
