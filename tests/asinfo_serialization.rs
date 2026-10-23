@@ -1,6 +1,6 @@
 #![cfg(feature = "asinfo")]
 
-use bgpkit_commons::asinfo::{AsInfo, DelegatedInfo, IrrAsnInfo};
+use bgpkit_commons::asinfo::{AllocationStatus, AsInfo, DelegatedInfo, IrrAsnInfo};
 use ipnet::{Ipv4Net, Ipv6Net};
 use serde_json::{Value, json};
 
@@ -56,6 +56,7 @@ fn newly_serialized_records_round_trip_through_deserialization() {
         hegemony: None,
         peeringdb: None,
         delegated: None,
+        allocation_status: AllocationStatus::Allocated,
         irr: Vec::new(),
     };
 
@@ -86,6 +87,7 @@ fn newly_serialized_records_round_trip_through_deserialization() {
             date: "20100726".to_string(),
             status: "allocated".to_string(),
         }),
+        allocation_status: AllocationStatus::Allocated,
         irr: vec![IrrAsnInfo {
             as_name: "CLOUDFLARENET".to_string(),
             descr: Vec::new(),
@@ -115,6 +117,7 @@ fn absent_enrichments_are_omitted_from_serialization() {
         hegemony: None,
         peeringdb: None,
         delegated: None,
+        allocation_status: AllocationStatus::Unallocated,
         irr: Vec::new(),
     };
 
@@ -126,6 +129,7 @@ fn absent_enrichments_are_omitted_from_serialization() {
                 ("asn".to_string(), json!(13335)),
                 ("name".to_string(), json!("CLOUDFLARENET")),
                 ("country".to_string(), json!("US")),
+                ("allocation_status".to_string(), json!("unallocated")),
             ]
             .into_iter()
             .collect()
@@ -154,6 +158,7 @@ fn present_enrichments_are_included_in_serialization() {
             date: "20100726".to_string(),
             status: "allocated".to_string(),
         }),
+        allocation_status: AllocationStatus::Allocated,
         irr: vec![IrrAsnInfo {
             as_name: "CLOUDFLARENET".to_string(),
             descr: Vec::new(),
