@@ -4,7 +4,9 @@
 //! generic snapshot-refresh runner. A failing source only fails its own task.
 
 use super::refresh::{TableSpec, build_csv_line, push_csv_field};
-use bgpkit_commons::asinfo::{AsInfo, AsInfoBuilder};
+use bgpkit_commons::asinfo::{
+    AllocationStatus, AsInfo, AsInfoBuilder, IANA_SPECIAL_ASN_RANGES, allocation_status_of_record,
+};
 use bgpkit_commons::delegated::{self, DelegatedRecord};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -14,6 +16,7 @@ pub(crate) enum Task {
     Population,
     Hegemony,
     Delegated,
+    Allocations,
 }
 
 pub(crate) const ALL_TASKS: &[Task] = &[
@@ -22,6 +25,7 @@ pub(crate) const ALL_TASKS: &[Task] = &[
     Task::Population,
     Task::Hegemony,
     Task::Delegated,
+    Task::Allocations,
 ];
 
 impl Task {
@@ -99,6 +103,31 @@ impl Task {
                 ],
                 index_swaps: &[("asndata.hegemony_staging_pkey", "hegemony_pkey")],
             },
+            Task::Allocations => TableSpec {
+                task: "asndata.asn_allocation",
+                table: "asndata.asn_allocation",
+                // One row per allocation *range*, not per ASN: the RFC 6996 private
+                // blocks span about 95 million ASNs, so a per-ASN table could not hold
+                // them. A point lookup is a containment test on the range index.
+                staging_ddl: "CREATE TABLE asndata.asn_allocation_staging (
+                    start_asn bigint NOT NULL,
+                    end_asn bigint NOT NULL,
+                    allocation_status text NOT NULL,
+                    registry text NOT NULL,
+                    country text NOT NULL,
+                    allocation_date text NOT NULL,
+                    data_as_of timestamptz NOT NULL,
+                    source_revision text NOT NULL
+                )",
+                copy_columns: "start_asn, end_asn, allocation_status, registry, country, allocation_date, data_as_of, source_revision",
+                index_ddl: &[
+                    "CREATE INDEX asn_allocation_staging_range_idx ON asndata.asn_allocation_staging USING gist (int8range(start_asn, end_asn, '[]'))",
+                ],
+                index_swaps: &[(
+                    "asndata.asn_allocation_staging_range_idx",
+                    "asn_allocation_range_idx",
+                )],
+            },
             Task::Delegated => TableSpec {
                 task: "asndata.delegated",
                 table: "asndata.delegated",
@@ -133,6 +162,7 @@ impl Task {
             Task::Population => load_population,
             Task::Hegemony => load_hegemony,
             Task::Delegated => load_delegated,
+            Task::Allocations => load_allocations,
         }
     }
 }
@@ -241,6 +271,80 @@ fn load_delegated(data_as_of: &str) -> Result<Vec<String>, String> {
     Ok(lines)
 }
 
+/// One row per allocation range: the ASN records of the five delegated files, plus the
+/// IANA special-purpose table, which no RIR file restates.
+///
+/// The statuses are the ones [`bgpkit_commons::asinfo::AllocationStatus`] names, so the
+/// API can read the verdict without re-deriving it; `available` records are dropped
+/// because an absent row already means unallocated.
+fn load_allocations(data_as_of: &str) -> Result<Vec<String>, String> {
+    let mut lines = Vec::new();
+    for url in delegated::RIR_DELEGATED_STATS_URLS {
+        let reader = delegated::fetch(url).map_err(|e| format!("failed to fetch {url}: {e}"))?;
+        for record in delegated::parse_reader(reader) {
+            let record = record.map_err(|e| format!("failed to parse {url}: {e}"))?;
+            let Some(status) = allocation_status_of_record(&record) else {
+                continue;
+            };
+            if let Some(line) = allocation_line(&record, status, data_as_of) {
+                lines.push(line);
+            }
+        }
+    }
+    for (start, end, status) in IANA_SPECIAL_ASN_RANGES {
+        lines.push(special_allocation_line(*start, *end, *status, data_as_of));
+    }
+    // Deterministic row order, and no duplicate rows when two files state one range.
+    lines.sort();
+    lines.dedup();
+    Ok(lines)
+}
+
+fn allocation_line(
+    record: &DelegatedRecord,
+    status: AllocationStatus,
+    data_as_of: &str,
+) -> Option<String> {
+    let start = record.start.trim().parse::<u64>().ok()?;
+    let count = record.value.trim().parse::<u64>().ok()?;
+    let end = start.checked_add(count.saturating_sub(1))?;
+    // `reserved` and `available` records state `*` for the country; it is not a code.
+    let country = match record.country.trim() {
+        "*" => "",
+        other => other,
+    };
+    let fields = vec![
+        Some(start.to_string()),
+        Some(end.to_string()),
+        Some(status.as_str().to_string()),
+        Some(record.registry.trim().to_lowercase()),
+        Some(country.to_string()),
+        Some(record.date.trim().to_string()),
+        Some(data_as_of.to_string()),
+        Some(super::refresh::SOURCE_REVISION.to_string()),
+    ];
+    Some(build_csv_line(&fields))
+}
+
+fn special_allocation_line(
+    start: u32,
+    end: u32,
+    status: AllocationStatus,
+    data_as_of: &str,
+) -> String {
+    let fields = vec![
+        Some(start.to_string()),
+        Some(end.to_string()),
+        Some(status.as_str().to_string()),
+        Some(String::new()),
+        Some(String::new()),
+        Some(String::new()),
+        Some(data_as_of.to_string()),
+        Some(super::refresh::SOURCE_REVISION.to_string()),
+    ];
+    build_csv_line(&fields)
+}
+
 fn delegated_line(record: &DelegatedRecord, data_as_of: &str) -> String {
     let fields = vec![
         Some(record.registry.clone()),
@@ -260,6 +364,77 @@ fn delegated_line(record: &DelegatedRecord, data_as_of: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn allocation_lines_cover_ranges_and_drop_the_absent_status() {
+        let allocated = DelegatedRecord {
+            registry: "APNIC".to_string(),
+            country: "JP".to_string(),
+            record_type: "asn".to_string(),
+            start: "1200".to_string(),
+            value: "3".to_string(),
+            date: "20240101".to_string(),
+            status: "allocated".to_string(),
+            extensions: Vec::new(),
+        };
+        let available = DelegatedRecord {
+            status: "available".to_string(),
+            country: "*".to_string(),
+            ..allocated.clone()
+        };
+        let reserved = DelegatedRecord {
+            status: "reserved".to_string(),
+            country: "*".to_string(),
+            ..allocated.clone()
+        };
+
+        // `available` states no allocation: no row is written for it.
+        assert!(allocation_status_of_record(&available).is_none());
+        assert_eq!(
+            allocation_status_of_record(&reserved),
+            Some(AllocationStatus::Reserved)
+        );
+
+        let line = allocation_line(
+            &allocated,
+            AllocationStatus::Allocated,
+            "2026-10-23T00:00:00+00:00",
+        )
+        .unwrap();
+        // start,end,status,registry,country,date,data_as_of,revision — the range's last
+        // ASN is start + count - 1, and the registry is lowercased like the source.
+        assert!(
+            line.starts_with("\"1200\",\"1202\",\"allocated\",\"apnic\",\"JP\""),
+            "{line}"
+        );
+        // A reserved record carries `*` for the country, which is not a country code.
+        let reserved_line = allocation_line(
+            &reserved,
+            AllocationStatus::Reserved,
+            "2026-10-23T00:00:00+00:00",
+        )
+        .unwrap();
+        assert!(
+            reserved_line.contains("\"reserved\",\"apnic\",\"\""),
+            "{reserved_line}"
+        );
+    }
+
+    #[test]
+    fn iana_special_rows_are_written_without_a_registry() {
+        let line = special_allocation_line(
+            64_512,
+            65_534,
+            AllocationStatus::Private,
+            "2026-10-23T00:00:00+00:00",
+        );
+        assert!(
+            line.starts_with("\"64512\",\"65534\",\"private\",\"\",\"\",\"\""),
+            "{line}"
+        );
+        // The table the loader copies is the one the library classifies against.
+        assert_eq!(IANA_SPECIAL_ASN_RANGES.len(), 9);
+    }
 
     #[test]
     fn delegated_line_shape() {
