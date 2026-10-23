@@ -58,6 +58,8 @@ enum Commands {
     Hegemony,
     /// asndata.delegated: RIR delegated statistics (full records)
     Delegated,
+    /// asndata.asn_allocation: per-range allocation status, IANA special-purpose rows included
+    Allocations,
     /// Run every asndata task sequentially
     Asndata,
     /// peeringdb schema: mirror of the 13 supported PeeringDB tables
@@ -133,6 +135,7 @@ async fn main() {
             Commands::Population => &[Task::Population],
             Commands::Hegemony => &[Task::Hegemony],
             Commands::Delegated => &[Task::Delegated],
+            Commands::Allocations => &[Task::Allocations],
             Commands::Asndata => asndata::ALL_TASKS,
             Commands::Peeringdb | Commands::Irr => unreachable!(),
         };

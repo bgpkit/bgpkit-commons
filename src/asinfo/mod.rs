@@ -119,6 +119,107 @@ pub struct DelegatedInfo {
     pub status: String,
 }
 
+/// Where an ASN sits in the RIRs' allocation record, as of the pass that read them.
+///
+/// The three positive values come from the status of the delegated-stats record that
+/// covers the ASN; [`Private`](AllocationStatus::Private) and the special-purpose part of
+/// [`Reserved`](AllocationStatus::Reserved) come from IANA's special-purpose AS number
+/// registry, which no RIR file restates; [`Unallocated`](AllocationStatus::Unallocated) is
+/// what remains, including the space RIRs list as `available`.
+///
+/// A delegated record wins over the IANA table: a RIR that states a status for an ASN has
+/// looked at that ASN, while the table is a static reservation.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AllocationStatus {
+    /// A delegated-stats record states `allocated` for this ASN.
+    Allocated,
+    /// A delegated-stats record states `assigned` for this ASN.
+    Assigned,
+    /// A delegated-stats record states `reserved`, or the ASN is a special-purpose number
+    /// that is not private use (AS0, AS112, AS_TRANS, the documentation blocks, AS65535,
+    /// AS4294967295).
+    Reserved,
+    /// RFC 6996 private use: `64512-65534` and `4200000000-4294967294`.
+    Private,
+    /// No delegated record and no special-purpose range covers the ASN.
+    #[default]
+    Unallocated,
+}
+
+/// IANA special-purpose AS numbers, from
+/// `iana-as-numbers-special-registry/special-purpose-as-numbers.csv` (read 2026-10-23).
+///
+/// Public because the loaders that store [`AllocationStatus`] need the same table: a
+/// second copy of these ranges in SQL or TypeScript is how the two sides drift apart.
+pub const IANA_SPECIAL_ASN_RANGES: &[(u32, u32, AllocationStatus)] = &[
+    (0, 0, AllocationStatus::Reserved),
+    (112, 112, AllocationStatus::Reserved),
+    (23_456, 23_456, AllocationStatus::Reserved),
+    (64_496, 64_511, AllocationStatus::Reserved),
+    (64_512, 65_534, AllocationStatus::Private),
+    (65_535, 65_535, AllocationStatus::Reserved),
+    (65_536, 65_551, AllocationStatus::Reserved),
+    (4_200_000_000, 4_294_967_294, AllocationStatus::Private),
+    (4_294_967_295, 4_294_967_295, AllocationStatus::Reserved),
+];
+
+impl AllocationStatus {
+    /// The lowercase spelling this enum serializes to.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Allocated => "allocated",
+            Self::Assigned => "assigned",
+            Self::Reserved => "reserved",
+            Self::Private => "private",
+            Self::Unallocated => "unallocated",
+        }
+    }
+}
+
+/// The IANA special-purpose status of an ASN, if the table covers it.
+fn special_allocation_status(asn: u32) -> Option<AllocationStatus> {
+    IANA_SPECIAL_ASN_RANGES
+        .iter()
+        .find(|(start, end, _)| (*start..=*end).contains(&asn))
+        .map(|(_, _, status)| *status)
+}
+
+/// How binding a status is when two delegated records cover the same ASN (an inter-RIR
+/// transfer can leave both files stating the ASN for a day).
+fn allocation_rank(status: AllocationStatus) -> u8 {
+    match status {
+        AllocationStatus::Allocated => 3,
+        AllocationStatus::Assigned => 2,
+        AllocationStatus::Reserved => 1,
+        AllocationStatus::Private | AllocationStatus::Unallocated => 0,
+    }
+}
+
+/// The status a delegated record states, for the `allocation_status` map.
+fn status_of_record(status: &str) -> Option<AllocationStatus> {
+    match status.trim() {
+        "allocated" => Some(AllocationStatus::Allocated),
+        "assigned" => Some(AllocationStatus::Assigned),
+        "reserved" => Some(AllocationStatus::Reserved),
+        // `available` states the absence of an allocation, which is the default.
+        _ => None,
+    }
+}
+
+/// The allocation status a delegated-statistics record states, for a loader that stores
+/// the verdict per record instead of per ASN.
+///
+/// `None` for a non-ASN record and for `available`, which states no allocation.
+pub fn allocation_status_of_record(
+    record: &crate::delegated::DelegatedRecord,
+) -> Option<AllocationStatus> {
+    if record.record_type != "asn" {
+        return None;
+    }
+    status_of_record(&record.status)
+}
+
 /// IRR data for a single ASN from a single registry source.
 ///
 /// Each entry corresponds to one IRR registry's view of this ASN. An ASN may
@@ -165,6 +266,12 @@ pub struct AsInfo {
     /// RIR delegated-stats allocation data. Present for every allocated ASN.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delegated: Option<DelegatedInfo>,
+    /// Where the ASN sits in the day's RIR allocation record. Always serialized, so a
+    /// caller can tell "allocated but unnamed" from "not allocated at all"; records
+    /// written before the field existed deserialize as
+    /// [`Unallocated`](AllocationStatus::Unallocated).
+    #[serde(default)]
+    pub allocation_status: AllocationStatus,
     /// IRR data per registry source. Empty if the ASN has no IRR registrations.
     /// Multiple sources may have data; callers choose which to trust.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -630,6 +737,51 @@ fn project_delegated_stats(text: &str, map: &mut HashMap<u32, DelegatedInfo>) {
     }
 }
 
+/// Project the allocation status of every ASN record, including the `reserved` and
+/// `available` rows [`project_delegated_record`] drops: that function keeps the
+/// allocated/assigned detail, this one keeps the verdict for any ASN a RIR mentions.
+///
+/// Ranges are expanded per-ASN (`value` is a count). The commands cover about 125,000
+/// ASNs across the five files (measured 2026-10-23), so the map stays small.
+fn project_status_record(
+    record: &crate::delegated::DelegatedRecord,
+    map: &mut HashMap<u32, AllocationStatus>,
+) {
+    if record.record_type != "asn" {
+        return;
+    }
+    let Some(status) = status_of_record(&record.status) else {
+        return;
+    };
+    let (Ok(start), Ok(count)) = (record.start.parse::<u64>(), record.value.parse::<u64>()) else {
+        return;
+    };
+    for asn in start..start.saturating_add(count) {
+        if asn > u32::MAX as u64 {
+            break;
+        }
+        let asn = asn as u32;
+        let held = map.entry(asn).or_insert(AllocationStatus::Unallocated);
+        if allocation_rank(status) > allocation_rank(*held) {
+            *held = status;
+        }
+    }
+}
+
+/// Set every entry's [`AllocationStatus`] from the day's delegated statuses, falling back
+/// to the IANA special-purpose table for ASNs no RIR record covers.
+fn classify_allocation(
+    asnames_map: &mut HashMap<u32, AsInfo>,
+    statuses: &HashMap<u32, AllocationStatus>,
+) {
+    for info in asnames_map.values_mut() {
+        info.allocation_status = match statuses.get(&info.asn) {
+            Some(status) => *status,
+            None => special_allocation_status(info.asn).unwrap_or(AllocationStatus::Unallocated),
+        };
+    }
+}
+
 /// Look up optional enrichment data (as2org, population, hegemony, peeringdb)
 /// for an ASN from already-loaded datasets. Shared by the main `asn.txt` parse
 /// loop and the delegated-stats fill so both paths behave identically.
@@ -677,12 +829,16 @@ fn fill_delegated_data(
     peeringdb_utils: Option<&Peeringdb>,
 ) {
     let mut delegated: HashMap<u32, DelegatedInfo> = HashMap::new();
+    let mut statuses: HashMap<u32, AllocationStatus> = HashMap::new();
     for url in crate::delegated::RIR_DELEGATED_STATS_URLS {
         match crate::delegated::fetch(url) {
             Ok(reader) => {
                 for record in crate::delegated::parse_reader(reader) {
                     match record {
-                        Ok(record) => project_delegated_record(record, &mut delegated),
+                        Ok(record) => {
+                            project_status_record(&record, &mut statuses);
+                            project_delegated_record(record, &mut delegated);
+                        }
                         Err(e) => warn!("failed to parse delegated stats from {url}: {e}"),
                     }
                 }
@@ -698,6 +854,7 @@ fn fill_delegated_data(
         hegemony_utils,
         peeringdb_utils,
     );
+    classify_allocation(asnames_map, &statuses);
 }
 
 /// Attach per-ASN [`DelegatedInfo`] values to the map, creating `AsInfo`
@@ -744,6 +901,12 @@ fn attach_delegated_data(
                     hegemony,
                     peeringdb,
                     delegated: Some(delegated_info.clone()),
+                    // Only `allocated`/`assigned` records reach this point.
+                    allocation_status: if delegated_info.status == "assigned" {
+                        AllocationStatus::Assigned
+                    } else {
+                        AllocationStatus::Allocated
+                    },
                     irr: Vec::new(),
                 }
             });
@@ -1073,6 +1236,10 @@ fn get_asinfo_map(config: &AsInfoLoadConfig) -> Result<HashMap<u32, AsInfo>> {
                 hegemony,
                 peeringdb,
                 delegated: None,
+                // The delegated pass overrides this for every ASN a RIR record covers;
+                // the special-purpose table already answers for the rest.
+                allocation_status: special_allocation_status(asn)
+                    .unwrap_or(AllocationStatus::Unallocated),
                 irr: Vec::new(),
             })
         })
@@ -1417,6 +1584,7 @@ ripencc|GB|asn|100|1|20200101|allocated|extra|fields|ok
                 hegemony: None,
                 peeringdb: None,
                 delegated: None,
+                allocation_status: AllocationStatus::Unallocated,
                 irr: Vec::new(),
             },
         );
@@ -1471,6 +1639,7 @@ ripencc|GB|asn|100|1|20200101|allocated|extra|fields|ok
                 hegemony: None,
                 peeringdb: None,
                 delegated: None,
+                allocation_status: AllocationStatus::Unallocated,
                 irr: Vec::new(),
             },
         );
@@ -1498,5 +1667,104 @@ ripencc|GB|asn|100|1|20200101|allocated|extra|fields|ok
         assert_eq!(info.irr.len(), 1);
         assert_eq!(info.irr[0].as_name, "CLOUDFLARE-NET");
         assert_eq!(info.irr[0].source, "RIPE");
+    }
+
+    fn statuses_of(text: &str) -> HashMap<u32, AllocationStatus> {
+        let mut statuses = HashMap::new();
+        for record in crate::delegated::parse_reader(text.as_bytes()).flatten() {
+            project_status_record(&record, &mut statuses);
+        }
+        statuses
+    }
+
+    #[test]
+    fn allocation_status_reads_every_delegated_status() {
+        // One record per status, including the two `project_delegated_record` drops.
+        let text = "ripencc|NL|asn|1|1|20240101|allocated\n\
+                    arin|US|asn|2|1|20240101|assigned\n\
+                    arin|*|asn|3|1|20240101|reserved\n\
+                    arin|*|asn|4|1249|20240101|available\n";
+        let statuses = statuses_of(text);
+        assert_eq!(statuses[&1], AllocationStatus::Allocated);
+        assert_eq!(statuses[&2], AllocationStatus::Assigned);
+        assert_eq!(statuses[&3], AllocationStatus::Reserved);
+        // `available` states the absence of an allocation, so it is not stored: the
+        // default is the same verdict and the map stays smaller.
+        assert!(!statuses.contains_key(&4));
+        assert!(!statuses.contains_key(&1252));
+    }
+
+    #[test]
+    fn allocation_status_expands_ranges_and_prefers_the_stronger_status() {
+        // APNIC states ASN blocks as a start + count; a transfer day can leave a weaker
+        // status in an earlier file, which must not overwrite the stronger one.
+        let text = "apnic|*|asn|1200|3|20240101|reserved\n\
+                    apnic|JP|asn|1201|1|20240101|allocated\n";
+        let statuses = statuses_of(text);
+        assert_eq!(statuses[&1200], AllocationStatus::Reserved);
+        assert_eq!(statuses[&1201], AllocationStatus::Allocated);
+        assert_eq!(statuses[&1202], AllocationStatus::Reserved);
+    }
+
+    #[test]
+    fn allocation_status_falls_back_to_the_special_purpose_table() {
+        let mut map = HashMap::new();
+        for asn in [
+            13335,
+            65_000,
+            4_200_000_001,
+            0,
+            23_456,
+            64_500,
+            4_294_967_295,
+        ] {
+            map.insert(
+                asn,
+                AsInfo {
+                    asn,
+                    name: "X".to_string(),
+                    country: "US".to_string(),
+                    as2org: None,
+                    population: None,
+                    hegemony: None,
+                    peeringdb: None,
+                    delegated: None,
+                    allocation_status: AllocationStatus::Allocated,
+                    irr: Vec::new(),
+                },
+            );
+        }
+        // AS13335 is the only ASN a RIR record covers in this fixture.
+        let statuses = statuses_of("arin|US|asn|13335|1|20240101|allocated\n");
+        classify_allocation(&mut map, &statuses);
+
+        assert_eq!(map[&13335].allocation_status, AllocationStatus::Allocated);
+        // RFC 6996 private use, both blocks.
+        assert_eq!(map[&65_000].allocation_status, AllocationStatus::Private);
+        assert_eq!(
+            map[&4_200_000_001].allocation_status,
+            AllocationStatus::Private
+        );
+        // Special-purpose but not private: AS0, AS_TRANS, documentation, the 32-bit tail.
+        assert_eq!(map[&0].allocation_status, AllocationStatus::Reserved);
+        assert_eq!(map[&23_456].allocation_status, AllocationStatus::Reserved);
+        assert_eq!(map[&64_500].allocation_status, AllocationStatus::Reserved);
+        assert_eq!(
+            map[&4_294_967_295].allocation_status,
+            AllocationStatus::Reserved
+        );
+    }
+
+    #[test]
+    fn unallocated_is_the_default_and_the_serialized_spelling() {
+        assert_eq!(AllocationStatus::default(), AllocationStatus::Unallocated);
+        assert_eq!(
+            serde_json::to_value(AllocationStatus::Unallocated).unwrap(),
+            serde_json::json!("unallocated")
+        );
+        assert_eq!(
+            serde_json::to_value(AllocationStatus::Assigned).unwrap(),
+            serde_json::json!("assigned")
+        );
     }
 }
