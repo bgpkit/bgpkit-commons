@@ -52,6 +52,13 @@ pub fn parse_reader<R: Read>(reader: R) -> impl Iterator<Item = Result<Delegated
 
 fn parse_line(line: &str) -> Result<Option<DelegatedRecord>> {
     let fields = line.split('|').collect::<Vec<_>>();
+    // The file's first line is a version record (`2|ripencc|serial|records|…` or ARIN's
+    // `2.3|arin|…`), not a record: every field is a file-level fact. It is seven fields
+    // long and so passes the shape check below, which is how version lines used to land
+    // in `asndata.delegated` as rows.
+    if fields[0] == "2" || fields[0] == "2.3" {
+        return Ok(None);
+    }
     // RIR summary lines (`registry|*|type|*|value|summary`) carry aggregate
     // counts for a type, not records. Both wildcard positions are checked so
     // a malformed six-field record still errors.
@@ -103,6 +110,19 @@ mod tests {
         let records = parse_all(input);
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].registry, "ripencc");
+    }
+
+    #[test]
+    fn skips_the_version_record_of_every_format() {
+        // Both spellings are seven fields wide and would otherwise parse as a record
+        // whose "registry" is the format version.
+        let input = "2|ripencc|1792706399|167682|19700101|20261022|+0200\n\
+                     2.3|arin|1792760421608|204338|19700101|20261023|-0400\n\
+                     ripencc|NL|asn|1|1|20240101|allocated\n";
+        let records = parse_all(input);
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].registry, "ripencc");
+        assert_eq!(records[0].record_type, "asn");
     }
 
     #[test]
