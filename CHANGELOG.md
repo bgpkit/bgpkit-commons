@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.14.1 - 2026-10-24
+
+### Dependencies
+
+* `oneio` 0.26 to 0.27: multipart uploads now run their parts in parallel and retry a single part instead of failing the whole upload. Consumers that depend on both crates (bgpkit-broker, asninfo) resolved two `oneio` versions before this release.
+
 ## v0.14.0 - 2026-10-05
 
 ### Added
