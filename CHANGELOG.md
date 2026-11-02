@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Fixed
+
+* `rpki`: `validate_check_expiry` applies the ROA validity window before the coverage test, so an expired ROA no longer reports `Invalid` for a route that RPKI held no opinion about at that time; `insert_roa` treats the window as part of a ROA's identity, so a re-issued certificate no longer evicts the earlier interval.
+
 ## v0.14.1 - 2026-10-24
 
 ### Dependencies

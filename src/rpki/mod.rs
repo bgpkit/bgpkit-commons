@@ -192,6 +192,31 @@ pub struct Roa {
     pub not_after: Option<NaiveDateTime>,
 }
 
+impl Roa {
+    /// Whether this ROA's supplied bounds cover `check_time`.
+    ///
+    /// Both bounds are inclusive and optional, and this reads only what the source
+    /// supplied. The built-in Cloudflare and RIPE-historical loaders fill
+    /// `not_after` from the certificate's expiry and leave `not_before` unset, so
+    /// on its own this is not "the ROA was in effect at t". A caller that needs
+    /// history has to supply observation windows itself, for instance by loading
+    /// intervals whose bounds already intersect the certificate window with the
+    /// span over which the archive observed the object.
+    pub fn effective_at(&self, check_time: NaiveDateTime) -> bool {
+        if let Some(not_before) = self.not_before {
+            if check_time < not_before {
+                return false;
+            }
+        }
+        if let Some(not_after) = self.not_after {
+            if check_time > not_after {
+                return false;
+            }
+        }
+        true
+    }
+}
+
 /// A validated AS Provider Authorization (ASPA).
 ///
 /// ASPAs specify which ASes are authorized providers for a customer AS.
@@ -370,13 +395,21 @@ impl RpkiTrie {
     }
 
     /// Insert a ROA. Returns true if this is a new prefix, false if added to existing prefix.
-    /// Duplicates are avoided - ROAs with same (prefix, asn, max_length) are considered identical.
+    ///
+    /// Two ROAs are the same only when their windows match as well: the same
+    /// (prefix, asn, max_length) re-issued under a new certificate is a second
+    /// interval, and dropping it would delete that tuple's history. Entries that
+    /// carry no window still dedupe as before; entries that each carry their own
+    /// expiry stay distinct, so a snapshot that lists the same tuple twice with
+    /// different expiries keeps both.
     pub fn insert_roa(&mut self, roa: Roa) -> bool {
         match self.trie.exact_match_mut(roa.prefix) {
             Some(existing_roas) => {
-                // Check if this ROA already exists (same prefix, asn, max_length)
                 if !existing_roas.iter().any(|existing| {
-                    existing.asn == roa.asn && existing.max_length == roa.max_length
+                    existing.asn == roa.asn
+                        && existing.max_length == roa.max_length
+                        && existing.not_before == roa.not_before
+                        && existing.not_after == roa.not_after
                 }) {
                     existing_roas.push(roa);
                 }
@@ -520,58 +553,37 @@ impl RpkiTrie {
         asn: u32,
         check_time: Option<NaiveDateTime>,
     ) -> RpkiValidation {
-        // First check if there are ANY covering ROAs (regardless of max_length)
-        let covering_roas = self.lookup_covering_roas(prefix);
-        if covering_roas.is_empty() {
-            return RpkiValidation::Unknown;
-        }
-
         let check_time = check_time.unwrap_or_else(|| Utc::now().naive_utc());
 
-        let mut found_matching_asn = false;
-
-        // Check for valid matches (matching ASN and max_length)
-        let matches = self.lookup_by_prefix(prefix);
-        for roa in matches {
-            if roa.asn == asn && roa.max_length >= prefix.prefix_len() {
-                found_matching_asn = true;
-
-                // Check if ROA is within valid time period
-                let is_valid_time = {
-                    if let Some(not_before) = roa.not_before {
-                        if check_time < not_before {
-                            false // ROA not yet valid
-                        } else {
-                            true
-                        }
-                    } else {
-                        true // no not_before constraint
-                    }
-                } && {
-                    if let Some(not_after) = roa.not_after {
-                        if check_time > not_after {
-                            false // ROA expired
-                        } else {
-                            true
-                        }
-                    } else {
-                        true // no not_after constraint
-                    }
-                };
-
-                if is_valid_time {
-                    return RpkiValidation::Valid;
+        // A ROA outside its window says nothing about the route: it is neither
+        // coverage nor authorization. Filtering before the coverage test is what
+        // lets one trie answer for any date - without it an expired ROA would be
+        // read as proof that the route was covered and, for a different origin,
+        // report `Invalid` for a time when RPKI held no opinion at all.
+        let mut covered = false;
+        let mut authorized = false;
+        for (roa_prefix, roas) in self.trie.matches(prefix) {
+            if !roa_prefix.contains(prefix) {
+                continue;
+            }
+            for roa in roas {
+                if !roa.effective_at(check_time) {
+                    continue;
+                }
+                covered = true;
+                if roa.asn == asn && roa.max_length >= prefix.prefix_len() {
+                    authorized = true;
                 }
             }
         }
 
-        // If we found matching ASN but all ROAs are outside valid time range, return Unknown
-        if found_matching_asn {
-            return RpkiValidation::Unknown;
+        if authorized {
+            RpkiValidation::Valid
+        } else if covered {
+            RpkiValidation::Invalid
+        } else {
+            RpkiValidation::Unknown
         }
-
-        // There are covering ROAs but none authorize this prefix/ASN
-        RpkiValidation::Invalid
     }
 
     /// Reload the RPKI data from its original source.
@@ -1101,5 +1113,129 @@ mod tests {
         let unknown_prefix: IpNet = "10.0.0.0/8".parse().unwrap();
         assert!(trie.lookup_covering_roas(&unknown_prefix).is_empty());
         assert!(trie.lookup_by_prefix(&unknown_prefix).is_empty());
+    }
+}
+
+// ============================================================================
+// Time-scoped validation
+// ============================================================================
+
+#[cfg(test)]
+mod interval_tests {
+    use super::*;
+
+    fn at(epoch: i64) -> NaiveDateTime {
+        DateTime::from_timestamp(epoch, 0).unwrap().naive_utc()
+    }
+
+    fn roa(prefix: &str, asn: u32, max_length: u8, from: Option<i64>, to: Option<i64>) -> Roa {
+        Roa {
+            prefix: prefix.parse().unwrap(),
+            asn,
+            max_length,
+            rir: None,
+            not_before: from.map(at),
+            not_after: to.map(at),
+        }
+    }
+
+    /// A ROA that lapsed before the check time is not coverage. A route announced
+    /// after every covering ROA expired is unknown, not invalid: the second verdict
+    /// claims RPKI rejected it, which is only true while the ROA was in effect.
+    #[test]
+    fn expired_covering_roa_is_not_coverage() {
+        let mut trie = RpkiTrie::new(None);
+        trie.insert_roa(roa(
+            "192.0.2.0/24",
+            64496,
+            24,
+            Some(1_600_000_000),
+            Some(1_650_000_000),
+        ));
+        let prefix: IpNet = "192.0.2.0/24".parse().unwrap();
+
+        let inside = at(1_620_000_000);
+        assert_eq!(
+            trie.validate_check_expiry(&prefix, 64496, Some(inside)),
+            RpkiValidation::Valid
+        );
+        assert_eq!(
+            trie.validate_check_expiry(&prefix, 64497, Some(inside)),
+            RpkiValidation::Invalid
+        );
+
+        let after_expiry = at(1_700_000_000);
+        assert_eq!(
+            trie.validate_check_expiry(&prefix, 64496, Some(after_expiry)),
+            RpkiValidation::Unknown
+        );
+        assert_eq!(
+            trie.validate_check_expiry(&prefix, 64497, Some(after_expiry)),
+            RpkiValidation::Unknown
+        );
+    }
+
+    /// One trie, two eras: the same prefix and origin flip between valid and unknown
+    /// as the ROA enters and leaves its window, without rebuilding the trie.
+    #[test]
+    fn one_trie_answers_different_days() {
+        let mut trie = RpkiTrie::new(None);
+        trie.insert_roa(roa(
+            "198.51.100.0/24",
+            64500,
+            24,
+            Some(1_500_000_000),
+            Some(1_600_000_000),
+        ));
+        let prefix: IpNet = "198.51.100.0/24".parse().unwrap();
+
+        assert_eq!(
+            trie.validate_check_expiry(&prefix, 64500, Some(at(1_550_000_000))),
+            RpkiValidation::Valid
+        );
+        assert_eq!(
+            trie.validate_check_expiry(&prefix, 64500, Some(at(1_700_000_000))),
+            RpkiValidation::Unknown
+        );
+        assert_eq!(
+            trie.validate_check_expiry(&prefix, 64501, Some(at(1_550_000_000))),
+            RpkiValidation::Invalid
+        );
+    }
+
+    /// The same tuple re-issued under a new certificate is two intervals, not one.
+    /// Deduping on (prefix, asn, max_length) alone silently deletes the history of
+    /// every tuple that was ever re-signed, which is most of them.
+    #[test]
+    fn reissued_roa_keeps_both_windows() {
+        let mut trie = RpkiTrie::new(None);
+        trie.insert_roa(roa(
+            "203.0.113.0/24",
+            64510,
+            24,
+            Some(1_400_000_000),
+            Some(1_500_000_000),
+        ));
+        trie.insert_roa(roa(
+            "203.0.113.0/24",
+            64510,
+            24,
+            Some(1_600_000_000),
+            Some(1_700_000_000),
+        ));
+        let prefix: IpNet = "203.0.113.0/24".parse().unwrap();
+
+        assert_eq!(
+            trie.validate_check_expiry(&prefix, 64510, Some(at(1_450_000_000))),
+            RpkiValidation::Valid
+        );
+        assert_eq!(
+            trie.validate_check_expiry(&prefix, 64510, Some(at(1_550_000_000))),
+            RpkiValidation::Unknown
+        );
+        assert_eq!(
+            trie.validate_check_expiry(&prefix, 64510, Some(at(1_650_000_000))),
+            RpkiValidation::Valid
+        );
     }
 }
