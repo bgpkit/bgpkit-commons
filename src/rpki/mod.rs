@@ -193,12 +193,15 @@ pub struct Roa {
 }
 
 impl Roa {
-    /// Whether this ROA was in effect at `check_time`.
+    /// Whether this ROA's supplied bounds cover `check_time`.
     ///
-    /// Both bounds are inclusive and optional. A source that publishes only the
-    /// current set (Cloudflare VRPs) leaves them unset, and an unset bound is no
-    /// constraint; a historical source fills them from the certificate window and
-    /// the observation span.
+    /// Both bounds are inclusive and optional, and this reads only what the source
+    /// supplied. The built-in Cloudflare and RIPE-historical loaders fill
+    /// `not_after` from the certificate's expiry and leave `not_before` unset, so
+    /// on its own this is not "the ROA was in effect at t". A caller that needs
+    /// history has to supply observation windows itself, for instance by loading
+    /// intervals whose bounds already intersect the certificate window with the
+    /// span over which the archive observed the object.
     pub fn effective_at(&self, check_time: NaiveDateTime) -> bool {
         if let Some(not_before) = self.not_before {
             if check_time < not_before {
@@ -396,8 +399,9 @@ impl RpkiTrie {
     /// Two ROAs are the same only when their windows match as well: the same
     /// (prefix, asn, max_length) re-issued under a new certificate is a second
     /// interval, and dropping it would delete that tuple's history. Entries that
-    /// carry no window at all (a source publishing only the current set, such as
-    /// Cloudflare VRPs) still dedupe as before.
+    /// carry no window still dedupe as before; entries that each carry their own
+    /// expiry stay distinct, so a snapshot that lists the same tuple twice with
+    /// different expiries keeps both.
     pub fn insert_roa(&mut self, roa: Roa) -> bool {
         match self.trie.exact_match_mut(roa.prefix) {
             Some(existing_roas) => {
