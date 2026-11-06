@@ -28,7 +28,7 @@ jobs:
       PEERINGDB_API_KEY: ${{ secrets.PEERINGDB_API_KEY }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       # Test comprehensive feature combinations to ensure optional dependencies work correctly
       # Each module has its own feature flag that gates both the module and its dependencies
